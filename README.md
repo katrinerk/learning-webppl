@@ -1,2 +1,2 @@
 # learning-webppl
-scripts for learning webppl
+Scripts that I am using to learn webppl
