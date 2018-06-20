@@ -1,0 +1,28 @@
+// a vanilla Markov Logic Network for reasoning over ogres and their friends
+// here: everything transformed into propositional logic
+
+// Evidence
+var ogreShrek = true
+var ogreFiona = true
+var friendShrekFiona = true
+
+// Markov Logic Network
+var model = function() {
+
+    // sample truth values for the nodes that are not in evidence
+    var grumpyShrek = flip()
+    var grumpyFiona = flip()
+
+    // factors: these are the clique potentials
+    // ogres tend to be grumpy
+    // forall x.ogre(x) -> grumpy(x) | 1.5
+    factor(!ogreShrek || grumpyShrek ? 1.5 : 0)
+    factor(!ogreFiona || grumpyFiona ? 1.5 : 0)
+    // friends of grumpy people tend to be grumpy
+    factor(!friendShrekFiona || !grumpyShrek || grumpyFiona ? 0.8 : 0)
+    factor(!friendShrekFiona || !grumpyFiona || grumpyShrek ? 0.8 : 0)
+
+    return [grumpyShrek, grumpyFiona]
+}
+
+Infer( { method : "enumerate" }, model)

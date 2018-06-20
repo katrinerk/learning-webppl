@@ -1,0 +1,128 @@
+// Test program:
+// re-implementation of experiment 1 from the alligator paper
+
+var worldsize = 10
+var flipprob = 0.5
+
+// =================================
+// world analysis functions
+var allXareY = function(xarray, yarray) {
+    return all(function(npair) { !npair[0] || npair[1] }, zip(xarray, yarray))
+}
+
+var propertiesOfPred = function(w, index) {
+    return map(function(yarray) {
+	return allXareY(w[1][index], yarray)
+    }, w[1])
+}
+
+var jaccardCoefficient = function(w, index1, index2) {
+    var propPairs = zip(propertiesOfPred(w, index1), propertiesOfPred(w, index2))
+
+    return sum(map( function(pair) { return pair[0] && pair[1] }, propPairs)) /
+	sum(map( function(pair) { return pair[0] || pair[1] }, propPairs))
+}
+
+// =================================
+// enforcing property overlap
+var regressionBeta0 = 0.3542847
+var regressionBeta1 = 1.7955250
+var residualStandardError = 0.1481
+
+var meanPredictedDistSim = function(w, index1, index2) {
+    return regressionBeta0 + regressionBeta1 * jaccardCoefficient(w, index1, index2)
+}
+
+var predictedDistSim = function(w, index1, index2) {
+    gaussian(meanPredictedDistSim(w, index1, index2), residualStandardError)
+}
+
+var predictedDistSimAboveObserved = function(observation, w, index1, index2) {
+    return observation <= predictedDistSim(w, index1, index2)
+}
+
+// =================================
+// sampling  a world
+var world = function () {
+    // anything may or may not be a crocodile
+    var crocodile = mem(function (n) {
+	return flip(flipprob)
+    })
+
+    // all crocodiles are animals. anything else may or may not be an animal
+    var animal = mem(function (n) {
+	return crocodile(n) ? true : flip(flipprob)
+    })
+
+    // same for green entities
+    var green = mem(function (n) {
+	return crocodile(n) ? true : flip(flipprob)
+    })
+
+    // and dangerous things
+    var dangerous = mem(function (n) {
+	return crocodile(n) ? true : flip(flipprob)
+    })
+
+    // anything may or may not be an alligator
+    var alligator = mem(function (n) {
+	return flip(flipprob)
+    })
+
+    var extensions = [ ["crocodile", "green", "animal", "dangerous", "alligator"],
+		       [ mapN(crocodile, worldsize), mapN(green, worldsize), mapN(animal, worldsize),
+			 mapN(dangerous, worldsize), mapN(alligator, worldsize)] ]
+    
+    return extensions
+    
+}
+
+
+// now let's look at multiple worlds
+var w1 = world();
+display("crocs in world 1:");
+display(sum(w1[1][0]));
+
+var w2 = world();
+display("crocs in world 2:");
+display(sum(w2[1][0]));
+
+
+display(w1)
+display("are all alligators green in w1?")
+display(allXareY(w1[1][4], w1[1][1]))
+
+display("properties of alligators:")
+display(propertiesOfPred(w1, 4))
+
+display("Jaccard coefficient of crocodiles and alligators in w1:")
+display(jaccardCoefficient(w1, 0, 4))
+
+display( "w1 admissible under observed sim 0.9?")
+display(predictedDistSimAboveObserved( 0.9263239, w1, 0, 4))
+
+// over a lot of worlds, how many animals do we see?
+display("marginal distribution of animals");
+var d = Infer({method : 'forward', samples : 1000}, function() {
+    var w = world()
+    return sum(w[1][2]) } )
+
+display(d)
+
+// over a lot of worlds, what property overlap do we see of crocodiles and alligators?
+// here we insert a condition to model distributional similarity
+// influencing property similarity
+display("marginal distribution of property overlap (without condition)")
+var e = Infer( { method : 'rejection', samples : 1000 }, function() {
+    var w = world()
+    return jaccardCoefficient(w, 0, 4) } )
+
+display(e)
+
+display("marginal distribution of property overlap (with condition)")
+var f = Infer( { method : 'rejection', samples : 1000 }, function() {
+    var w = world()
+    condition( predictedDistSimAboveObserved( 0.9263239, w, 0, 4))    
+    return jaccardCoefficient(w, 0, 4) } )
+
+f;

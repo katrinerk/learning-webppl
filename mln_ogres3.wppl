@@ -1,0 +1,59 @@
+// a vanilla Markov Logic Networks for reasoning over ogres and their friends
+// here: instead of compiling all literals into named constants,
+// have one mem-ed function for each predicate.
+// also, trying to map over factors rather than calling each one explicitly.
+
+// Evidence
+var constants = ["Shrek", "Fiona"]
+
+// both Shrek and Fiona are ogres
+var ogre = function(constant) {
+    return true
+}
+
+// Shrek is Fiona's friend, and vice versa.
+// we wouldn't say that they are their own friends.
+var friend = function(c1, c2) {
+    return (c1 == c2 ? false : true)
+}
+
+
+// Markov Logic Network
+var model = function() {
+
+    // sample truth values for the nodes that are not in evidence.
+    // here: who is grumpy?
+    var grumpy = mem(function(constant) { flip() })
+
+    // Clique potentials:
+    // ogres tend to be grumpy
+    // not ideal to have these functions defined in here, would be
+    // better outside.
+    // then we'll need to pass the whole world to the clique function.
+    var clique1 = function(c1) {
+	factor(!ogre(c1) || grumpy(c1) ? 1.5 : 0)
+    }
+
+    // friends of grumpy people tend to be grumpy
+    var clique2 = function(c1, c2) {
+	factor( !friend(c1, c2) || !grumpy(c1) || grumpy(c2) ? 0.8 : 0)
+    }
+
+    // compute clique potentials for the unary clique1
+    map( function(c) { clique1(c); }, [0, 1])
+    
+    // clique potentials for the binary clique2
+    // problem with this: this also runs through
+    // pairs [0,0] and [1,1] even though we would rather
+    // have friend() not be a node in the network for (0,0)
+    // and (1,1). maybe one could add definition lists:
+    // lists of constant tuples for which the clique is defined
+    map( function(c1) {
+	map( function(c2) { clique2(c1, c2);  }, [0,1])
+    }, [0,1] )
+    
+
+    return [grumpy(0), grumpy(1)]
+}
+
+Infer( { method : "enumerate" }, model)

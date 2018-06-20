@@ -1,0 +1,54 @@
+// Test program:
+// sampling a random world with some crocodiles and alligators in it,
+// printing a few things about that world. 
+
+var worldsize = 10
+var flipprob = 0.5
+
+var world = function () {
+    // anything may or may not be a crocodile
+    var crocodile = mem(function (n) {
+	return flip(flipprob)
+    })
+
+    // all crocodiles are animals. anything else may or may not be an animal
+    var animal = mem(function (n) {
+	return crocodile(n) ? true : flip(flipprob)
+    })
+
+    // same for green entities
+    var green = mem(function (n) {
+	return crocodile(n) ? true : flip(flipprob)
+    })
+
+    // and dangerous things
+    var dangerous = mem(function (n) {
+	return crocodile(n) ? true : flip(flipprob)
+    })
+
+    // anything may or may not be an alligator
+    var alligator = mem(function (n) {
+	return flip(flipprob)
+    })
+    
+   return { crocodile : mapN(crocodile, worldsize),
+	    green : mapN(green, worldsize),
+	    animal : mapN(animal, worldsize),
+	    dangerous : mapN(dangerous, worldsize),
+	    alligator : mapN(alligator, worldsize) }  
+}
+
+// now let's look at multiple worlds
+var w1 = world();
+display("crocs in world 1:");
+display(sum(w1.crocodile));
+
+var w2 = world();
+display("crocs in world 2:");
+display(sum(w2.crocodile));
+
+// over a lot of worlds, how many animals do we see?
+display("marginal distribution of animals");
+var d = Infer({method : 'forward', samples : 1000}, function() { sum(world().animal) } )
+
+d;

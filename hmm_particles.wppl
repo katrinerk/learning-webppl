@@ -1,0 +1,65 @@
+// my first attempt at a particle filter:
+// HMM decoding through a particle filter.
+// We have a given observation sequence.
+// Instead of computing the exact Viterbi lattice,
+// keep a large number of particles, partial state sequences, around
+// and re-sample the partial state sequences based on the
+// last state's likelihood of producing the current observation
+//
+
+
+// prior: sample a next state to go to.
+// states are just true and false.
+// preference for staying in the same state. 
+var transition = function(s) {
+  return s ? flip(0.7) : flip(0.3)
+}
+
+// likelihood: how likely is the sampled state
+// given the observation?
+// observations are also just true and false.
+var observe = function(state, observation) {
+    // determine emission probabilities
+    var stateprob = state ? 0.9 : 0.1
+    // prefer states that have a high probability for
+    // the current observation
+    // if we just use score() straight up, computation takes
+    // forever.
+    // Multiplying the factor by two speeds up computation,
+    // but loses some low-probability options
+    factor( Bernoulli({ p : stateprob }).score(observation) * 2);
+}
+
+// advancing the particle:
+// this is formulated as a recursive function
+// that samples the whole sequence of states.
+// 'states' is the previous sequence of states.
+//   initialize with [true] or [false].
+// 'observations' is the sequence of true observations.
+//   the current observation is at states.length - 1
+// 'n' is the number of remaining steps to sample
+var advanceParticle = function(states, observations, n) {
+    // transition from last state to new state
+    var newState = transition(states[states.length-1]);
+    // likelihood: how good is the new state at
+    // producing the current observation? 
+    var newObs = observe(newState, observations[states.length-1]);
+    var newStates = states.concat( [newState]);
+    return (n == 1) ? newStates : advanceParticle(newStates, observations, n-1);
+}
+
+// true observations used for computing the likelihood
+var trueObs = [false, false, false, false, false]
+
+
+// inference: particle filter with 1000 particles.
+// call this variant of Infer with the recursive function that
+// samples a whole state sequence, and it will magically re-sample
+// your particles after each state in the sequence
+var posterior = Infer(
+    { method : 'SMC', particles : 10000},
+    function() {
+	return advanceParticle([true], trueObs, 5);
+    });
+
+posterior;

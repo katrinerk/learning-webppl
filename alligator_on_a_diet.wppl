@@ -1,0 +1,189 @@
+// toy version of "distributional modeling on a diet".
+// This only models the part where we observe one textual occurrence of a word
+// and try to infer its properties.
+// This does not learn a bimodal topic model.
+
+//==================
+// data
+
+// properties that we are considering
+var properties = [ "dangerous", "green", "slimy", "animal", "waterdwelling" ]
+// context words that we are considering
+var contextwords = [ "eats", "swims", "wafts", "flees", "iseaten" ]
+
+
+// 3 Bernoulli vectors representing clusters of individuals:
+// the probabilities are over properties
+var propertyClusters = [
+    [ 0.9, 0.2, 0.1, 0.99, 0.3 ],  // mostly dangerous animals
+    [ 0.3, 0.3, 0.6, 0.99, 0.9 ],  // less dangerous water animals
+    [ 0.1, 0.8, 0.9, 0.01, 0.95 ]   // mostly algae
+    ]
+
+
+// 4 topics with probabilities for generating each word (pWords), and
+// for generating from each property cluster (pProps)
+var topics = [
+    // topic 0
+    { pProps : [0.7, 0.2, 0.1 ],   pWords : [ 0.6, 0.1, 0.001, 0.1, 0.199] },
+    // topic 1
+    { pProps : [0.3, 0.4, 0.3 ],   pWords : [ 0.45, 0.03, 0.03, 0.04, 0.45] },
+    // topic 2
+    { pProps : [0.01, 0.1, 0.89 ], pWords : [0.04, 0.05, 0.6, 0.01, 0.3 ]},
+    // topic 3
+    { pProps : [0.1, 0.7, 0.2 ],   pWords : [ 0.05,  0.04, 0.01, 0.7, 0.2 ] }
+]
+
+//==================
+// sampling objects and context words
+
+// sampling properties from a property cluster
+// returns an array of 0s and 1s
+var drawProperties = function(clusterindex) {
+    return map(function(propindex) { return flip(propertyClusters[clusterindex][propindex]) },
+	       [0,1,2,3,4])
+	       
+}
+
+// turn a property sample of 0s and 1s into a list of properties that apply
+var listProperties = function(trutharray) {
+    return map( function(pair) { return pair[1] },
+		filter(function(pair) { return pair[0] }, zip(trutharray, properties)))
+}
+
+// map an array to a new array in which entry i has been incremented
+var incrementIthEntryInArray = function(somearray, targetindex) {
+    return mapIndexed( function(index, count) { return index == targetindex ? count + 1 : count },
+		       somearray)
+}
+
+// making the word part of the pseudo-document for a concept,
+// with given topic sequence
+var makePseudoDocumentWords = function(topicsequence) {
+    // count how often each word is drawn
+    return reduce(
+	function(topicindex, acc) { return incrementIthEntryInArray(acc, categorical( { ps : topics[topicindex].pWords, vs : [0,1,2,3,4] } ))},
+	[0,0,0,0,0], topicsequence)
+}
+
+// making the property part of the pseudo-document for a concept,
+// with given topic sequence
+var makePseudoDocumentProps = function(topicsequence) {
+    return reduce( function(topicindex, acc) {
+	var thispcluster = categorical( { ps : topics[topicindex].pProps, vs : [0,1,2] })
+	var theseproperties = drawProperties(thispcluster)
+	return map2(function(accentry, propvalue) { return accentry + propvalue }, acc, theseproperties)
+    }, [0, 0, 0, 0, 0], topicsequence)
+}
+
+// making a pseudo-document for a concept with given topic probabilities
+var makePseudoDocument = function(n, topicprob) {
+    // sequence of topics that apply
+    var topicsequence = mapN(function(i) {
+	return categorical({ ps : topicprob, vs : [0, 1, 2, 3]})
+    }, n)
+
+    // count how often each word is drawn
+    var wordcount = makePseudoDocumentWords(topicsequence)
+    
+    // count how often each property is drawn
+    var propertycount = makePseudoDocumentProps(topicsequence)
+
+    return { words : wordcount,
+	     properties : propertycount }
+}
+
+
+//==================
+// inference about a word's topic distribution given observed context items
+
+// given a single context word, infer likely topics for the concept's pseudo-document
+var topicsGivenContextword = function(wordindex) {
+    // draw probabilities for the four topics
+    var topicprob = dirichlet( { alpha : Vector([0.1, 0.1, 0.1, 0.1]) })
+    // draw a topic
+    var topicindex = categorical( { ps : topicprob, vs : [0,1,2,3] } )
+    // state that this topic has sampled the observed word
+    observe(Categorical( { ps: topics[ topicindex ].pWords, vs : [0,1,2,3,4] } ), wordindex)
+    // return topic probabilities
+    return { t0 : topicprob.data[0], t1 : topicprob.data[1], t2 : topicprob.data[2], t3 : topicprob.data[3] }
+}
+
+// given a single context word, infer likely properties for instances of the concept
+var propertiesGivenContextword = function(wordindex) {
+    // draw probabilities for the four topics
+    var topicprob = dirichlet( { alpha : Vector([0.1, 0.1, 0.1, 0.1]) })
+    // draw a topic
+    var topicindex = categorical( { ps : topicprob, vs : [0,1,2,3] } )
+    // state that this topic has sampled the observed word
+    observe(Categorical( { ps: topics[ topicindex ].pWords, vs : [0,1,2,3,4] } ), wordindex)
+    // use the topic to draw properties
+    var thispcluster = categorical( { ps : topics[topicindex].pProps, vs : [0,1,2] })
+    var theseproperties = drawProperties(thispcluster)
+
+    return { dangerous : theseproperties[0], green : theseproperties[1], slimy : theseproperties[2],
+	     animal : theseproperties[3], waterdwelling : theseproperties[4] }
+}
+
+//==================
+// probing the model
+
+// topic probabilities for a pike.
+var pike = [ 0.6, 0.1, 0.01, 0.29]
+
+// running a single sample for 'pike'
+display("sampling a topic for a pike")
+var thistopic = categorical( { ps : pike, vs : [0, 1, 2, 3]})
+display(thistopic)
+
+display("drawing a word and a property cluster from this topic")
+display("word")
+var thisword = categorical( { ps : topics[thistopic].pWords, vs : contextwords } )
+display(thisword)
+display("property cluster")
+var thispcluster = categorical( { ps : topics[thistopic].pProps, vs : [0,1,2] })
+display(thispcluster)
+display("properties")
+var theseproperties = drawProperties(thispcluster)
+display(theseproperties)
+listProperties(theseproperties)
+
+// generating a pseudo-document of pike objects and context words
+display("pseudo document of size 1000 for 'pike'")
+var pseudodoc = makePseudoDocument(1000, pike)
+display(zip(contextwords, pseudodoc.words))
+zip(properties, pseudodoc.properties)
+
+// inferring topics when we have only seen one context word
+// using the context words "eats"
+display("What are likely topics for a concept for which we only know it has been the subject of 'eat'?")
+var topicprobEats = Infer( { method : 'rejection', samples : 1000},
+			   function() { return topicsGivenContextword(0) } )
+
+// overall, how likely is each topic ot occur given the context word 'eats'?
+display("expectation for topic t0")
+display(expectation(topicprobEats, function(x) { return x.t0 }))
+display("expectation for t1")
+display(expectation(topicprobEats, function(x) { return x.t1 }))
+display("expectation for t2")
+display(expectation(topicprobEats, function(x) { return x.t2 }))
+display("expectation for t3")
+display(expectation(topicprobEats, function(x) { return x.t3 }))
+
+// inferring properties when we have only seen one context word
+display("What are likely properties for a concept for which we only know it has been the subject of 'waft'?")
+var propertyprobEats = Infer( { method : 'rejection', samples : 1000},
+			   function() { return propertiesGivenContextword(2) } )
+
+display("expectation for property 'dangerous'")
+display(expectation(propertyprobEats, function(x) { return x.dangerous }))
+display("expectation for property 'green'")
+display(expectation(propertyprobEats, function(x) { return x.green }))
+display("expectation for property 'slimy'")
+display(expectation(propertyprobEats, function(x) { return x.slimy }))
+display("expectation for property 'animal'")
+display(expectation(propertyprobEats, function(x) { return x.animal }))
+display("expectation for property 'waterdwelling'")
+display(expectation(propertyprobEats, function(x) { return x.waterdwelling }))
+
+"done"

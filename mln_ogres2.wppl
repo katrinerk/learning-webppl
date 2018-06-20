@@ -1,0 +1,46 @@
+// a vanilla Markov Logic Networks for reasoning over ogres and their friends
+// here: instead of compiling all literals into named constants,
+// have one mem-ed function for each predicate
+
+// Evidence
+var constants = ["Shrek", "Fiona"]
+
+// both Shrek and Fiona are ogres
+var ogre = function(constant) {
+    return true
+}
+
+// Shrek is Fiona's friend, and vice versa
+var friend = function(c1, c2) {
+    return true
+}
+
+
+// Markov Logic Network
+var model = function() {
+
+    // sample truth values for the nodes that are not in evidence.
+    // here: who is grumpy?
+    var grumpy = mem(function(constant) { flip() })
+
+    // Clique potentials:
+    // ogres tend to be grumpy
+    var clique1 = function(c1) {
+	return !ogre(c1) || grumpy(c1)
+    }
+
+    // friends of grumpy people tend to be grumpy
+    var clique2 = function(c1, c2) {
+	return !friend(c1, c2) || !grumpy(c1) || grumpy(c2)
+    }
+
+    factor(clique1(0) ? 1.5 : 0)
+    factor(clique1(1) ? 1.5 : 0)
+
+    factor(clique2(0,1) ? 0.8 : 0)
+    factor(clique2(1,0) ? 0.8 : 0)
+
+    return [grumpy(0), grumpy(1)]
+}
+
+Infer( { method : "enumerate" }, model)
