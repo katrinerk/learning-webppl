@@ -1,0 +1,191 @@
+// given a set of datapoints
+// (which have been generated from a number of different Gaussians),
+// probabilistically generate one cluster:
+// start somewhere, and add datapoints one by one
+//
+// somewhat hacky formulation, but the simplest I could think of
+//
+// determine the medoid of the cluster,
+// computer the probability that the distances to all other datapoints have been generated
+// by an exponential distribution with lambda = 1 from the medoid.
+//
+// Current cluster is X, next candidate is y. The sample that chooses to add y gets factor
+// P(X U {y}). The sample that chooses not to add y gets factor P(X).
+
+//-------------------------------
+// data generation
+//-----
+
+// generate n data points, named for example a1, a2, a3... if nameprefix = 'a',
+// from a multivariate Gaussian of 2 dimensions with diagonal covariance matrix
+// (that is, draw from one Gaussian for the x dimension, and one for the y dimension)
+var generateDataPoints = function(n, nameprefix, muX, muY, sigmaX, sigmaY) {
+    return mapN(function(i) {
+	return { "name" : nameprefix + i,
+		 "x" : gaussian( { mu : muX, sigma : sigmaX}),
+		 "y" : gaussian( { mu : muY, sigma : sigmaY})
+	       }
+    }, n)
+}
+
+// compute pairwise distances between data points
+var euclideanDist = function(dp1, dp2){
+    // sqrt( (x1-x2)^2 + (y1-y2)^2)
+    return Math.sqrt( Math.pow(dp1.x - dp2.x, 2) + Math.pow(dp1.y - dp2.y, 2))
+}
+
+// returns a list L of lists. L[0] contains the distances from datapoint #0 to all datapoints,
+// L[1] has the distances from datapoint #1 to all datapoints, etc.
+var pairwiseEuclidean = function(datapoints) {
+    return map(function(dp1) {
+	return map(function(dp2) {
+	    return dp1.name == dp2.name ? 0.0 : euclideanDist(dp1, dp2)
+	}, datapoints)
+    }, datapoints)
+}
+
+// data: same number of points from 3 Gaussians
+var dataPoints = generateDataPoints(5, "a", 1,1,5,4).concat(
+    generateDataPoints(5, "b", -1, -1, 3, 3)).concat(
+	generateDataPoints(5, "c", 2,0, 2, 3))
+
+// pairwise Euclidean distances between the data points
+var dpDistances = pairwiseEuclidean(dataPoints)
+
+//-------------------------------
+// helper functions
+//-----
+
+// determine the sum of distances from one datapoint to a list of other datapoints.
+// all data points are given as indices on dataPoints
+var summedDistances = function(datapoint, cluster) {
+    return sum(map( function(i) { return dpDistances[datapoint][i]
+				}, cluster))
+}
+
+// _.min(array, function) doesn't seem to work, it works just the same as _.min(array)
+// that is, it does not map each data point to something else before computing the min.
+// compute the min over pairs ( fn(entry), entry) so that min runs over fn(entry) first
+// then map back to the entry
+var myMin = function(fn, arr) {
+    return _.min(map( function(e) { return [fn(e), e] },
+		      arr)
+		)[1]
+}
+
+
+// determine the medoid of a cluster.
+// a cluster is a list of indices from dataPoints
+// use dpDistances to determine the datapoint that has the minimum summed distance to all other datapoints in the cluster
+var getMedoid = function(cluster) {
+    return cluster.length == 1 ? cluster[0] :
+	myMin(function(i) {
+	    return summedDistances(i, cluster)
+	}, cluster)
+}
+
+// determine the point nearest to x that is not in the given arr
+// distances are taken from dpDistances
+var pointNearestXNotInArr = function(x, arr) {
+    var candidates = _.difference(_.range(dataPoints.length), arr)
+
+    return candidates.length == 0 ? -1 :
+	myMin( function(i) {
+	    return dpDistances[x][i]
+	}, candidates)
+}
+
+// determine the log probability of a cluster
+// log P(X) = log [ prod_i p(x_i) ]
+// Assuming an exponential distribution that generates distances from the medoid, we have
+// log P(X) = log [ prod_i f_exp(dist(x_i, medoid(X)); lambda) ]
+// = sum_i log f_exp(dist(x_i, medoid(X); lambda)
+var logProbCluster = function(cluster) {
+    var medoid = getMedoid(cluster)
+
+    // assume that all distances from the medoid have been generated
+    // by an exponential distribution with lambda = 1:
+    // f(x; lambda) = lambda exp(- lambda x) if x >= 0
+    //                and 0, else
+    // log prob(x) for lambda = 1 is simply -x
+    return sum(map(function(i) {
+	return -dpDistances[medoid][i]
+    }, cluster))
+		   
+}
+
+// map a cluster to the names of its members
+var memberNames = function(cluster) {
+    return map( function(i) { return dataPoints[i].name }, cluster)
+}
+
+//-------------------------------
+// model
+//-----
+
+var extendCluster = function(n, cluster, nonmembers) {
+
+    if (n == 0) {
+	return cluster;
+    } else {
+	// find medoid of this cluster
+	var medoid = getMedoid(cluster)
+	
+	// find point y nearest to medoid that is not in the cluster X and
+	// that has not already been declared a nonmember
+	var y = pointNearestXNotInArr(medoid, cluster.concat(nonmembers))
+	if (y == -1) {
+	    return cluster
+	} else {
+	
+	    // choose whether to add y or not
+	    var addY = flip()
+	    
+	    if (addY) {
+		// we are adding y to the cluster
+		var newCluster = cluster.concat([y])
+		// additional weight on this sample is P(cluster U {y})
+		factor(logProbCluster(newCluster))
+		// sample the rest
+		return extendCluster(n-1, newCluster, nonmembers)
+	    } else {
+		// we are not adding y to the cluster.
+		// instead we record y as a nonmember.
+		// additional weight on this sample is
+		// P(cluster) * P({y}) = P(cluster)
+		factor(logProbCluster(cluster))
+		return extendCluster(n-1, cluster, nonmembers.concat( [y] ))
+	    }
+	}
+    }
+}
+
+//-------------------------------
+// Inference
+//-----
+
+var largerExperiment = function() { 
+    var result = Infer( { method : "SMC", particles : 1000}, function() {
+	// choose a random index of a datapoint as the starting point of the cluster
+	var cluster = [ randomInteger(dataPoints.length) ]
+
+	memberNames(extendCluster(5, cluster, [ ]))
+    })
+
+    return result
+}
+
+var smallExperiment = function () {
+    var cluster = [ randomInteger(dataPoints.length) ]
+
+    display("starting point")
+    display(memberNames(cluster))
+
+    var result = Infer( { method : "SMC", particles : 200 }, function() {
+	memberNames(extendCluster(3, cluster, []))
+    })
+
+    return result;
+}
+
+largerExperiment()

@@ -1,0 +1,69 @@
+// from the probmods book:
+// estimate a gaussian mixture of two components.
+// extended: sigma is not fixed but sampled as well
+
+// observations: some two-dimensional points
+var observedData = [{"name":"a0","x":1.5343898902525506,"y":2.3460878867298494},
+		    {"name":"a1","x":1.1810142951204246,"y":1.4471493362364427},
+		    {"name":"a2","x":1.3359476185854833,"y":0.5979097803077312},
+		    {"name":"a3","x":1.7461500236610696,"y":0.07441351219375836},
+		    {"name":"a4","x":1.1644280209698559,"y":0.5504283671279169},
+		    {"name":"a5","x":0.5383179421667954,"y":0.36076578484371535},
+		    {"name":"a6","x":1.5884794217838352,"y":1.2379018386693668},
+		    {"name":"a7","x":0.633910148716343,"y":1.21804947961078},
+		    {"name":"a8","x":1.3591395983859944,"y":1.2056207607743645},
+		    {"name":"a9","x":1.5497995798191613,"y":1.555239222467223},
+                    {"name":"b0","x":-1.7103539324754713,"y":-1.178368516925668},
+		    {"name":"b1","x":-0.49690324128135566,"y":-1.4482931166889297},
+		    {"name":"b2","x":-1.0191455290951414,"y":-0.4103273022785636},
+		    {"name":"b3","x":-1.6127046244033036,"y":-1.198330563419632},
+		    {"name":"b4","x":-0.8146486481025548,"y":-0.33650743701348906},
+		    {"name":"b5","x":-1.2570582864922166,"y":-0.7744102418371701},
+		    {"name":"b6","x":-1.2635542813354101,"y":-0.9202555846522052},
+		    {"name":"b7","x":-1.3169953429184593,"y":-0.40784942495184096},
+		    {"name":"b8","x":-0.7409787028330914,"y":-0.6105091049436135},
+		    {"name":"b9","x":-0.7683709878962971,"y":-1.0457286452094976}]
+
+var predictives = Infer({method: 'MCMC', samples: 200, lag: 100}, function(){
+    // two probabilities that sum up to one, from a Dirichlet with uninformative prior
+    var catMixture = dirichlet(ones([2, 1]))
+    // sample either a label of "cat1" or "cat2" based on catMixture.
+    // remember that this is what we sampled for obsName
+    var obsToCat = mem(function(obsName) {
+	return categorical({vs: ['cat1', 'cat2'], ps: T.toScalars(catMixture)});
+    })
+    // for each category, draw a mean, and remember it. two-dimensional again.
+    var catToMean = mem(function(cat) {
+	return {xMean: gaussian(0,1), yMean: gaussian(0,1)}
+    })
+    // new: for each category, draw a standard deviation
+    var catToSdev = mem(function(cat) {
+	return { xSigma : gamma({ shape: 2.0, scale: 1.0}), ySigma : gamma({shape: 2.0, scale: 1.0}) }
+    })
+
+    var obsFn = function(datum){
+	// get the mean for the category belonging to this observation
+	var mus = catToMean(obsToCat(datum.name))
+	var sigmas = catToSdev(obsToCat(datum.name))
+	// factor: the Gaussian with this sampled mu and sigma has produced the datum
+	observe(Gaussian({mu: mus.xMean, sigma: sigmas.xSigma}), datum.x)
+	observe(Gaussian({mu: mus.yMean, sigma: sigmas.ySigma}), datum.y)
+    }
+    // record the factors for all observations
+    mapData({data: observedData}, obsFn)
+
+   // returns the two estimated means
+  return {cat1mu: catToMean('cat1'),
+          cat2mu: catToMean('cat2'),
+	  cat1sigma : catToSdev('cat1'),
+	  cat2sigma : catToSdev('cat2')}
+})
+
+display(expectation(predictives, function(x) { return x.cat1mu.xMean }))
+display(expectation(predictives, function(x) { return x.cat1mu.yMean }))
+display(expectation(predictives, function(x) { return x.cat1sigma.xSigma }))
+display(expectation(predictives, function(x) { return x.cat1sigma.ySigma }))
+display(expectation(predictives, function(x) { return x.cat2mu.xMean }))
+display(expectation(predictives, function(x) { return x.cat2mu.yMean }))
+display(expectation(predictives, function(x) { return x.cat2sigma.xSigma }))
+display(expectation(predictives, function(x) { return x.cat2sigma.ySigma }))

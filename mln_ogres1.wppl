@@ -1,6 +1,12 @@
 // a vanilla Markov Logic Network for reasoning over ogres and their friends
 // here: everything transformed into propositional logic
 
+// forall x.ogre(x) -> grumpy(x) | 1.5
+// forall x,y. friends(x, y) & grumpy(x) -> grumpy(y) | 0.8
+// ogre(Shrek)
+// ogre(Fiona)
+// friends(Shrek, Fiona)
+
 // Evidence
 var ogreShrek = true
 var ogreFiona = true
