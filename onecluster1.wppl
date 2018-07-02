@@ -55,9 +55,9 @@
 var hyperNumDataPointsPerGaussian = 5
 // what are the means and sigmas of the three Gaussians from which we generate data?
 var hyperDataGenerationGaussians = [
-    { name : "a", muX : 3, muY : 3, sigmaX : 1, sigmaY : 1 },
-    { name : "b", muX : -1, muY : -1, sigmaX : 1, sigmaY : 1},
-    { name : "c", muX : 0, muY : 5, sigmaX : 1, sigmaY : 1 }
+    { name : "a", muX : 5, muY : 5, sigmaX : 1, sigmaY : 1 },
+    { name : "b", muX : -2, muY : -2, sigmaX : 1, sigmaY : 1},
+    { name : "c", muX : 0, muY : 3, sigmaX : 1, sigmaY : 1 }
 ]
 
 // hyperparameters for the parameters mu and sigma of the threshold:
@@ -102,14 +102,15 @@ var euclideanDist = function(dp1, dp2){
     return Math.sqrt( Math.pow(dp1.x - dp2.x, 2) + Math.pow(dp1.y - dp2.y, 2))
 }
 
-// returns a list L of lists. L[0] contains the distances from datapoint #0 to all datapoints,
-// L[1] has the distances from datapoint #1 to all datapoints, etc.
+// returns a list L of lists. L[0] contains the distances from datapoint #0 to all datapoints
+// with an index higher than 0, l[1] has the distances frmo datapoint #1 to all
+// datapoints with an index higher than 1, and so on.
 var pairwiseEuclidean = function(datapoints) {
-    return map(function(dp1) {
-	return map(function(dp2) {
-	    return dp1.name == dp2.name ? 0.0 : euclideanDist(dp1, dp2)
-	}, datapoints)
-    }, datapoints)
+    return map(function(index1) {
+	return map(function(index2) {
+	    return euclideanDist(datapoints[index1], datapoints[index2])
+	}, _.range(index1+1, datapoints.length))
+    }, _.range(datapoints.length))
 }
 
 // data: same number of points from 3 Gaussians
@@ -117,6 +118,14 @@ var dataPoints = generateDataPointsRecursively(hyperDataGenerationGaussians)
 
 // pairwise Euclidean distances between the data points
 var dpDistances = pairwiseEuclidean(dataPoints)
+
+var getdpDistance = function(index1, index2) {
+    if (index1 == index2) {
+	return 0.0
+    } else {
+	return index1 < index2 ? dpDistances[index1][index2 - index1 - 1] : dpDistances[index2][index1 - index2 - 1]
+    }
+}
 
 //-------------------------------
 // helper functions
@@ -155,13 +164,13 @@ var extendCluster = function(inIndices, candidates, startIndex, muTau, sigmaTau)
 
 	// The candidate needs to be on the right side of threshold tau
 	if (isMember) {
-	    condition( dpDistances[ startIndex ][ candidate ] < tau)
+	    condition( getdpDistance(startIndex, candidate) < tau)
 
 	    return extendCluster( inIndices.concat( [ candidate ] ),
 				  candidates.slice(1),
 				  startIndex, muTau, sigmaTau)
 	} else {
-	    condition( dpDistances[ startIndex ][ candidate ] > tau)
+	    condition( getdpDistance( startIndex, candidate) > tau)
 
 	    return extendCluster(inIndices,
 				 candidates.slice(1),
