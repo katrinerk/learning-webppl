@@ -1,0 +1,94 @@
+
+// hyperparameters for the parameters mu and sigma of the threshold:
+// both mu and sigma are drawn from Gamma distributions
+var hyperMuShape = 3.0
+var hyperMuScale = 1.0
+var hyperSigmaShape = 0.25
+var hyperSigmaScale = 1.0
+
+
+var getdpDistance = function(index1, index2) {
+    if (index1 == index2) {
+	return 0.0
+    } else {
+	return index1 < index2 ? dpDistances[index1][index2 - index1 - 1] : dpDistances[index2][index1 - index2 - 1]
+    }
+}
+
+
+//-------------------------------
+// helper functions
+//-----
+
+//-------------------------------
+// model
+// This is one incremental sample for the particle filter
+//-----
+
+// inIndices: list of indices of datapoints that are in the cluster
+// candidates: list of indices of datapoints that can potentially be added to the cluster
+// startIndex: index of datapoint that is the starting point
+// muTau, sigmaTau: parameters of the threshold distribution
+
+var extendCluster = function(inIndices, candidates, startIndex, muTau, sigmaTau) {
+
+    if (candidates.length == 0) {
+	// we have considered all candidates, the cluster is finished
+	return inIndices;
+    } else {
+	// consider the next candidate
+	var candidate = candidates[0]
+
+	// choose a threshold for it
+	var tau = gaussian( { mu : muTau, sigma : sigmaTau } )
+
+	// choose whether it is a member
+	var isMember = flip()
+
+	// The candidate needs to be on the right side of threshold tau
+	if (isMember) {
+	    condition( getdpDistance(startIndex, candidate) < tau)
+
+	    return extendCluster( inIndices.concat( [ candidate ] ),
+				  candidates.slice(1),
+				  startIndex, muTau, sigmaTau)
+	} else {
+	    condition( getdpDistance( startIndex, candidate) > tau)
+
+	    return extendCluster(inIndices,
+				 candidates.slice(1),
+				 startIndex, muTau, sigmaTau)
+	}
+    }
+}
+
+var model = function(startIndex) {
+    var muTau = gamma({shape : hyperMuShape, scale : hyperMuScale })
+    var sigmaTau = gamma( { shape : hyperSigmaShape, scale : hyperSigmaScale })
+
+    // cluster initially has only startIndex
+    // candidates: range[0:len(units)] minus startIndex
+    return extendCluster( [ startIndex ],
+			  filter( function(i) { return i != startIndex }, _.range(units.length)),
+			  startIndex, muTau, sigmaTau)
+}
+			  
+
+//-------------------------------
+// Inference
+//-----
+
+var Experiment = function () {
+    var startIndex =  randomInteger(units.length)
+
+    display("starting point")
+    display(startIndex)
+
+    var result = Infer( { method : "SMC", particles : 1000 }, function() {
+	return model(startIndex)
+    })
+
+    return result;
+}
+
+Experiment()

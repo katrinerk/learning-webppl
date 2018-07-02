@@ -1,0 +1,592 @@
+var theGraph = {
+	"ub1bL1140C1" : {
+	type : "Statement", 
+	subject : "V779959.00008",
+	predicate : "Movement_transport-artifact_agent",
+	object : "E779959.00013",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.002397" ],
+	},
+	"http://darpa.mil/annotations/ldc/relation-506" : {
+	type : "Statement", 
+	subject : "E779959.00015",
+	predicate : "hasKBEntry",
+	object : "Entity_Vasyl-Mykolaiovych-Geranin",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000188" ],
+	},
+	"http://darpa.mil/annotations/ldc/relation-513" : {
+	type : "Statement", 
+	subject : "E779959.00017",
+	predicate : "hasKBEntry",
+	object : "Filler_Malaysia-Airlines-Flight-17",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000053" ],
+	},
+	"ub1bL1051C1" : {
+	type : "Statement", 
+	subject : "V779959.00005",
+	predicate : "Transaction_transfer-ownership_beneficiary",
+	object : "E779959.00012",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000032" ],
+	},
+	"ub1bL849C1" : {
+	type : "Statement", 
+	subject : "V779959.00006",
+	predicate : "Conflict_attack_attacker",
+	object : "E779959.00012",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000593" ],
+	},
+	"http://darpa.mil/annotations/ldc/E779959.00016" : { type : "Entity" },
+	"http://darpa.mil/annotations/ldc/R779959.00003" : {
+	type : "Statement", 
+	subject : "E779959.00016",
+	predicate : "genafl_apora",
+	object : "E779959.00013",
+	conf : 0.75 ,
+	mentionID : [ "RM779959.000462" ],
+	},
+	"http://darpa.mil/annotations/ldc/R779959.00002" : {
+	type : "Statement", 
+	subject : "E779959.00012",
+	predicate : "genafl_spon",
+	object : "E779959.00013",
+	conf : 1.0 ,
+	mentionID : [ "RM779959.002282" ],
+	},
+	"ub1bL1287C1" : {
+	type : "Statement", 
+	subject : "V779959.00006",
+	predicate : "Conflict_attack_target",
+	object : "E779959.00017",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000593" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-658" : {
+	type : "Statement", 
+	subject : "V779959.00008",
+	predicate : "type",
+	object : "MOVEMENT_TRANSPORT-ARTIFACT",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.002397" ],
+	},
+	"ub1bL878C1" : {
+	type : "Statement", 
+	subject : "V779959.00008",
+	predicate : "Movement_transport-artifact_artifact",
+	object : "E779959.00016",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.002397" ],
+	},
+	"http://darpa.mil/annotations/ldc/V779959.00007" : { type : "Event" },
+	"ub1bL1083C1" : {
+	type : "Statement", 
+	subject : "V779959.00006",
+	predicate : "Conflict_attack_place",
+	object : "E779959.00011",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000593" ],
+	},
+	"http://darpa.mil/annotations/ldc/relation-511" : {
+	type : "Statement", 
+	subject : "E779959.00010",
+	predicate : "hasKBEntry",
+	object : "Entity_Igor-Bezler-%28a.k.a.-%22Bes%22%29",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000179" ],
+	},
+	"ub1bL466C1" : {
+	type : "Statement", 
+	subject : "V779959.00004",
+	predicate : "Contact_broadcast_place",
+	object : "E779959.00011",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000503" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-647" : {
+	type : "Statement", 
+	subject : "E779959.00018",
+	predicate : "type",
+	object : "Weapon",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.002378" ],
+	},
+	"http://darpa.mil/annotations/ldc/relation-509" : {
+	type : "Statement", 
+	subject : "E779959.00020",
+	predicate : "hasKBEntry",
+	object : "org_Ukraine%27s-State-Aviation-Services",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000534" ],
+	},
+	"ub1bL1375C1" : {
+	type : "Statement", 
+	subject : "V779959.00005",
+	predicate : "Transaction_transfer-ownership_thing",
+	object : "E779959.00016",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000032" ],
+	},
+	"ub1bL963C1" : {
+	type : "Statement", 
+	subject : "V779959.00004",
+	predicate : "Contact_broadcast_entity",
+	object : "E779959.00020",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000503" ],
+	},
+	"http://darpa.mil/annotations/ldc/relation-505" : {
+	type : "Statement", 
+	subject : "E779959.00018",
+	predicate : "hasKBEntry",
+	object : "wea_SA-11-BUK-Missile",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.002378" ],
+	},
+	"ub1bL188C1" : {
+	type : "Statement", 
+	subject : "V779959.00006",
+	predicate : "Conflict_attack_target",
+	object : "E779959.00017",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000552" ],
+	},
+	"http://darpa.mil/annotations/ldc/E779959.00014" : { type : "Entity" },
+	"http://darpa.mil/annotations/ldc/assertion-645" : {
+	type : "Statement", 
+	subject : "E779959.00012",
+	predicate : "type",
+	object : "Person",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000098" ],
+	},
+	"ub1bL1255C1" : {
+	type : "Statement", 
+	subject : "V779959.00006",
+	predicate : "Conflict_attack_attacker",
+	object : "E779959.00014",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000552" ],
+	},
+	"ub1bL642C1" : {
+	type : "Statement", 
+	subject : "V779959.00008",
+	predicate : "Movement_transport-artifact_destination",
+	object : "E779959.00013",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.002397" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-654" : {
+	type : "Statement", 
+	subject : "E779959.00014",
+	predicate : "type",
+	object : "GeopoliticalEntity",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000062" ],
+	},
+	"http://darpa.mil/annotations/ldc/relation-510" : {
+	type : "Statement", 
+	subject : "E779959.00016",
+	predicate : "hasKBEntry",
+	object : "Filler_Buk-332",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000446" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-655" : {
+	type : "Statement", 
+	subject : "E779959.00017",
+	predicate : "type",
+	object : "Vehicle",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000053" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-659" : {
+	type : "Statement", 
+	subject : "V779959.00004",
+	predicate : "type",
+	object : "CONTACT_BROADCAST",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000503" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-660" : {
+	type : "Statement", 
+	subject : "V779959.00007",
+	predicate : "type",
+	object : "CONTACT_CORRESPONDENCE",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000634" ],
+	},
+	"http://darpa.mil/annotations/ldc/E779959.00013" : { type : "Entity" },
+	"http://darpa.mil/annotations/ldc/assertion-646" : {
+	type : "Statement", 
+	subject : "E779959.00019",
+	predicate : "type",
+	object : "GeopoliticalEntity",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000248" ],
+	},
+	"ub1bL128C1" : {
+	type : "Statement", 
+	subject : "V779959.00007",
+	predicate : "Contact_correspondence_entity",
+	object : "E779959.00010",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000634" ],
+	},
+	"http://darpa.mil/annotations/ldc/relation-508" : {
+	type : "Statement", 
+	subject : "E779959.00013",
+	predicate : "hasKBEntry",
+	object : "Entity_Russia",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000071" ],
+	},
+	"ub1bL304C1" : {
+	type : "Statement", 
+	subject : "V779959.00006",
+	predicate : "Conflict_attack_instrument",
+	object : "E779959.00016",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000593" ],
+	},
+	"ub1bL333C1" : {
+	type : "Statement", 
+	subject : "V779959.00006",
+	predicate : "Conflict_attack_place",
+	object : "E779959.00011",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000552" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-657" : {
+	type : "Statement", 
+	subject : "V779959.00006",
+	predicate : "type",
+	object : "CONFLICT_ATTACK",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000593","VM779959.000552" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-652" : {
+	type : "Statement", 
+	subject : "E779959.00016",
+	predicate : "type",
+	object : "Weapon",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000446" ],
+	},
+	"http://darpa.mil/annotations/ldc/E779959.00010" : { type : "Entity" },
+	"http://darpa.mil/annotations/ldc/assertion-651" : {
+	type : "Statement", 
+	subject : "E779959.00020",
+	predicate : "type",
+	object : "Organization",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000534" ],
+	},
+	"ub1bL764C1" : {
+	type : "Statement", 
+	subject : "V779959.00007",
+	predicate : "Contact_correspondence_entity",
+	object : "E779959.00015",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000634" ],
+	},
+	"http://darpa.mil/annotations/ldc/relation-503" : {
+	type : "Statement", 
+	subject : "E779959.00012",
+	predicate : "hasKBEntry",
+	object : "Entity_Pro-Russian-seperatists",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000098" ],
+	},
+	"http://darpa.mil/annotations/ldc/relation-512" : {
+	type : "Statement", 
+	subject : "E779959.00014",
+	predicate : "hasKBEntry",
+	object : "Entity_Ukraine",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000062" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-649" : {
+	type : "Statement", 
+	subject : "E779959.00011",
+	predicate : "type",
+	object : "GeopoliticalEntity",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000239" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-650" : {
+	type : "Statement", 
+	subject : "E779959.00013",
+	predicate : "type",
+	object : "GeopoliticalEntity",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000071" ],
+	},
+	"ub1bL1197C1" : {
+	type : "Statement", 
+	subject : "V779959.00005",
+	predicate : "Transaction_transfer-ownership_giver",
+	object : "E779959.00013",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000032" ],
+	},
+	"http://darpa.mil/annotations/ldc/relation-504" : {
+	type : "Statement", 
+	subject : "E779959.00019",
+	predicate : "hasKBEntry",
+	object : "gpe_Luhansk",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000248" ],
+	},
+	"ub1bL1226C1" : {
+	type : "Statement", 
+	subject : "V779959.00006",
+	predicate : "Conflict_attack_instrument",
+	object : "E779959.00016",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000552" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-653" : {
+	type : "Statement", 
+	subject : "E779959.00010",
+	predicate : "type",
+	object : "Person",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000179" ],
+	},
+	"http://darpa.mil/annotations/ldc/R779959.00001" : {
+	type : "Statement", 
+	subject : "E779959.00016",
+	predicate : "genafl_apora",
+	object : "E779959.00014",
+	conf : 1.0 ,
+	mentionID : [ "RM779959.000421" ],
+	},
+	"http://darpa.mil/annotations/ldc/E779959.00012" : { type : "Entity" },
+	"http://darpa.mil/annotations/ldc/V779959.00006" : { type : "Event" },
+	"ub1bL613C1" : {
+	type : "Statement", 
+	subject : "V779959.00008",
+	predicate : "Movement_transport-artifact_origin",
+	object : "E779959.00014",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.002397" ],
+	},
+	"http://darpa.mil/annotations/ldc/E779959.00011" : { type : "Entity" },
+	"http://darpa.mil/annotations/ldc/E779959.00019" : { type : "Entity" },
+	"http://darpa.mil/annotations/ldc/relation-507" : {
+	type : "Statement", 
+	subject : "E779959.00011",
+	predicate : "hasKBEntry",
+	object : "Entity_Donetsk",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000239" ],
+	},
+	"http://darpa.mil/annotations/ldc/V779959.00004" : { type : "Event" },
+	"http://darpa.mil/annotations/ldc/assertion-648" : {
+	type : "Statement", 
+	subject : "E779959.00015",
+	predicate : "type",
+	object : "Person",
+	conf : 1.0 ,
+	mentionID : [ "EM779959.000188" ],
+	},
+	"http://darpa.mil/annotations/ldc/assertion-656" : {
+	type : "Statement", 
+	subject : "V779959.00005",
+	predicate : "type",
+	object : "TRANSACTION_TRANSFER-OWNERSHIP",
+	conf : 1.0 ,
+	mentionID : [ "VM779959.000032" ],
+	},
+	"http://darpa.mil/annotations/ldc/V779959.00008" : { type : "Event" },
+	"http://darpa.mil/annotations/ldc/E779959.00020" : { type : "Entity" },
+	"http://darpa.mil/annotations/ldc/E779959.00015" : { type : "Entity" },
+	"http://darpa.mil/annotations/ldc/V779959.00005" : { type : "Event" },
+	"http://darpa.mil/annotations/ldc/E779959.00018" : { type : "Entity" },
+	"http://darpa.mil/annotations/ldc/E779959.00017" : { type : "Entity" },
+}
+
+
+
+var units = [
+	[ "ub1bL878C1","ub1bL642C1","http://darpa.mil/annotations/ldc/assertion-658","ub1bL1140C1","ub1bL613C1" ],
+	[ "http://darpa.mil/annotations/ldc/relation-506","http://darpa.mil/annotations/ldc/assertion-648" ],
+	[ "http://darpa.mil/annotations/ldc/assertion-655","http://darpa.mil/annotations/ldc/relation-513" ],
+	[ "ub1bL1197C1","ub1bL1375C1","ub1bL1051C1","http://darpa.mil/annotations/ldc/assertion-656" ],
+	[ "ub1bL1287C1","ub1bL849C1","http://darpa.mil/annotations/ldc/assertion-657","ub1bL1083C1","ub1bL304C1" ],
+	[ "http://darpa.mil/annotations/ldc/R779959.00003" ],
+	[ "http://darpa.mil/annotations/ldc/R779959.00002" ],
+	[ "http://darpa.mil/annotations/ldc/relation-511","http://darpa.mil/annotations/ldc/assertion-653" ],
+	[ "ub1bL466C1","ub1bL963C1","http://darpa.mil/annotations/ldc/assertion-659" ],
+	[ "http://darpa.mil/annotations/ldc/assertion-647","http://darpa.mil/annotations/ldc/relation-505" ],
+	[ "http://darpa.mil/annotations/ldc/assertion-651","http://darpa.mil/annotations/ldc/relation-509" ],
+	[ "ub1bL1226C1","ub1bL333C1","http://darpa.mil/annotations/ldc/assertion-657","ub1bL188C1","ub1bL1255C1" ],
+	[ "http://darpa.mil/annotations/ldc/relation-503","http://darpa.mil/annotations/ldc/assertion-645" ],
+	[ "http://darpa.mil/annotations/ldc/relation-512","http://darpa.mil/annotations/ldc/assertion-654" ],
+	[ "http://darpa.mil/annotations/ldc/relation-510","http://darpa.mil/annotations/ldc/assertion-652" ],
+	[ "http://darpa.mil/annotations/ldc/assertion-660","ub1bL764C1","ub1bL128C1" ],
+	[ "http://darpa.mil/annotations/ldc/assertion-646","http://darpa.mil/annotations/ldc/relation-504" ],
+	[ "http://darpa.mil/annotations/ldc/assertion-650","http://darpa.mil/annotations/ldc/relation-508" ],
+	[ "http://darpa.mil/annotations/ldc/relation-507","http://darpa.mil/annotations/ldc/assertion-649" ],
+	[ "http://darpa.mil/annotations/ldc/R779959.00001" ],
+]
+
+
+
+var dpDistances = [
+	[
+	 10000, 6, 2, 2, 2, 2, 10000, 6, 10000, 10, 2, 4, 2, 2, 10000, 10000, 2, 6, 2
+	],
+	[
+	 10000, 10000, 10000, 10000, 10000, 6, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 2, 10000, 10000, 10000, 10000
+	],
+	[
+	 6, 2, 6, 6, 10000, 6, 10000, 10, 2, 6, 6, 6, 10000, 10000, 8, 6, 6
+	],
+	[
+	 2, 2, 2, 10000, 6, 10000, 10, 2, 2, 4, 2, 10000, 10000, 2, 6, 2
+	],
+	[
+	 2, 2, 10000, 2, 10000, 6, 0, 2, 4, 2, 10000, 10000, 4, 2, 2
+	],
+	[
+	 2, 10000, 6, 10000, 10, 2, 4, 4, 2, 10000, 10000, 2, 6, 2
+	],
+	[
+	 10000, 6, 10000, 10, 4, 2, 6, 4, 10000, 10000, 2, 6, 4
+	],
+	[
+	 10000, 10000, 10000, 10000, 10000, 10000, 10000, 2, 10000, 10000, 10000, 10000
+	],
+	[
+	 10000, 2, 2, 6, 6, 6, 10000, 10000, 8, 2, 6
+	],
+	[
+	 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000
+	],
+	[
+	 6, 10, 10, 10, 10000, 10000, 12, 6, 10
+	],
+	[
+	 4, 2, 2, 10000, 10000, 4, 2, 2
+	],
+	[
+	 6, 6, 10000, 10000, 4, 6, 6
+	],
+	[
+	 4, 10000, 10000, 6, 6, 2
+	],
+	[
+	 10000, 10000, 4, 6, 2
+	],
+	[
+	 10000, 10000, 10000, 10000
+	],
+	[
+	 10000, 10000, 10000
+	],
+	[
+	 8, 4
+	],
+	[
+	 6
+	],
+]
+
+
+// hyperparameters for the parameters mu and sigma of the threshold:
+// both mu and sigma are drawn from Gamma distributions
+var hyperMuShape = 3.0
+var hyperMuScale = 1.0
+var hyperSigmaShape = 0.25
+var hyperSigmaScale = 1.0
+
+
+var getdpDistance = function(index1, index2) {
+    if (index1 == index2) {
+	return 0.0
+    } else {
+	return index1 < index2 ? dpDistances[index1][index2 - index1 - 1] : dpDistances[index2][index1 - index2 - 1]
+    }
+}
+
+
+//-------------------------------
+// helper functions
+//-----
+
+//-------------------------------
+// model
+// This is one incremental sample for the particle filter
+//-----
+
+// inIndices: list of indices of datapoints that are in the cluster
+// candidates: list of indices of datapoints that can potentially be added to the cluster
+// startIndex: index of datapoint that is the starting point
+// muTau, sigmaTau: parameters of the threshold distribution
+
+var extendCluster = function(inIndices, candidates, startIndex, muTau, sigmaTau) {
+
+    if (candidates.length == 0) {
+	// we have considered all candidates, the cluster is finished
+	return inIndices;
+    } else {
+	// consider the next candidate
+	var candidate = candidates[0]
+
+	// choose a threshold for it
+	var tau = gaussian( { mu : muTau, sigma : sigmaTau } )
+
+	// choose whether it is a member
+	var isMember = flip()
+
+	// The candidate needs to be on the right side of threshold tau
+	if (isMember) {
+	    condition( getdpDistance(startIndex, candidate) < tau)
+
+	    return extendCluster( inIndices.concat( [ candidate ] ),
+				  candidates.slice(1),
+				  startIndex, muTau, sigmaTau)
+	} else {
+	    condition( getdpDistance( startIndex, candidate) > tau)
+
+	    return extendCluster(inIndices,
+				 candidates.slice(1),
+				 startIndex, muTau, sigmaTau)
+	}
+    }
+}
+
+var model = function(startIndex) {
+    var muTau = gamma({shape : hyperMuShape, scale : hyperMuScale })
+    var sigmaTau = gamma( { shape : hyperSigmaShape, scale : hyperSigmaScale })
+
+    // cluster initially has only startIndex
+    // candidates: range[0:len(units)] minus startIndex
+    return extendCluster( [ startIndex ],
+			  filter( function(i) { return i != startIndex }, _.range(units.length)),
+			  startIndex, muTau, sigmaTau)
+}
+			  
+
+//-------------------------------
+// Inference
+//-----
+
+var Experiment = function () {
+    var startIndex =  randomInteger(units.length)
+
+    display("starting point")
+    display(startIndex)
+
+    var result = Infer( { method : "SMC", particles : 1000 }, function() {
+	return model(startIndex)
+    })
+
+    return result;
+}
+
+Experiment()
