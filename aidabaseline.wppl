@@ -148,7 +148,7 @@ var testUseYourOwnWeapons = function(ees1, ees2) {
 			    
 			    // they need to be affiliated
 			    // How do we say this?
-			    factor(bgAffiliated(agentStmt.object, instrumentStmt.object) ? 0 : -3)
+			    // factor(bgAffiliated(agentStmt.object, instrumentStmt.object) ? 0 : -3)
 			    
 			}, ees2, [["predicate", "Conflict_attack_instrument"], ["subject", ev]])
 		}, ees1, [["predicate", "Conflict_attack_attacker"], ["subject", ev]])
