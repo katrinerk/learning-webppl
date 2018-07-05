@@ -134,23 +134,24 @@ var testEventTypeConsistency = function(ees1, ees2) {
 	    }, ees1, ees2)
 }
 
-// people don't use other people's weapons, usually
+// a conflict attack event can only have one attacker.
+// Is that the right formulation, or could we possibly see two
+// different entity IDs with the same KB entry?
 var testUseYourOwnWeapons = function(ees1, ees2) {
     // forall joint events in ees1, ees2
     allJointEvents(
 	function(ev) {
 	    // for all conflict attack agents of this event in ees1
 	    allStatementsMatching(
-		function(agentStmt) {
-		    // for all conflict attack instruments of this event in ees1
+		function(agentStmt1) {
+		    // for all conflict attack agents of this event in ees2
 		    allStatementsMatching(
-			function(instrumentStmt) {
+			function(agentStmt2) {
 			    
-			    // they need to be affiliated
-			    // How do we say this?
-			    // factor(bgAffiliated(agentStmt.object, instrumentStmt.object) ? 0 : -3)
+			    // they should be the same
+			    factor( agentStmt1.object == agentStmt2.object ? 0 : -3)
 			    
-			}, ees2, [["predicate", "Conflict_attack_instrument"], ["subject", ev]])
+			}, ees2, [["predicate", "Conflict_attack_agent"], ["subject", ev]])
 		}, ees1, [["predicate", "Conflict_attack_attacker"], ["subject", ev]])
 	}, ees1, ees2)
 }
