@@ -1,3 +1,27 @@
+// ===========================
+// Baseline clustering-plus-inference model for AIDA
+// Katrin Erk  2018
+// 
+// Very basic one-class clustering model
+// where the cluster is characterized by a fuzzy boundary around the current cluster
+// 
+//
+// start: current cluster = one of the possible entry points
+// sample parameters mu and sigma of the fuzzy boundary around the cluster from appropriate Gamma distributions
+//
+// Probabilistically extend by each additional  unit:
+//   Sample boundary from a Gaussian characterized by mu
+//   Flip coin: is data point inside or out?
+//   Hard condition: groupable unit on correct side of boundary
+//   Example: we sampled that the unit is “in”, so its distance to current cluster must be < boundary
+//   Additional hard, soft conditions from weighted rules
+//   influence probability of the sampled cluster
+//
+//
+// usage:
+// webppl aidabaseline.wppl --require webppl-json
+// ===========================
+
 //-------------------------------
 // Hyperparameters
 //-----
