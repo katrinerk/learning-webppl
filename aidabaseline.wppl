@@ -17,10 +17,8 @@
 //     206,
 //     188
 // ],
-// "corefacets": {
-//     "?crash_target": "E779987.00064",
-//     "?crash_event": "V779987.00022"
-// },
+//    "corefacet_labels" : ["?crash_target", "?crash_event"],
+//    "corefacet_fillers" : ["E779987.00064","V779987.00022"],
 // "coreconstraints": [
 //     [
 //      "?crash_event",
@@ -97,7 +95,6 @@ var myIntersection = function(array1, array2) {
 var myArrayMinusElt = function(somearray, elt) {
     return filter(function(e) { return e != elt }, somearray)
 }
-
 
 //-------------------------------
 // Proximity measures
@@ -191,9 +188,75 @@ var addStatementsFromEre = function(oldStatements, EreList) {
 	oldStatements, EreList)
 }
 
+// given a core constraint of the form [ ?entry1, rel, ?entry2],
+// map it into a list of pairs [constraintindex, filler] for known entries.
+// so if ?entry1 maps to "abc" in the given core facet label list
+// but ?entry2 is not in the core facet label list, the result is
+// [[ 0, "abc"], [1, rel]]
+var transformCoreConstraint = function(coreConstraint, coreFacetLabels, coreFacetFillers) {
+    // indices of entries in core constraint that have entries in coreFacetLabels
+    var constraintEntriesInCoreFacet = filter(
+	function(i) {
+	    coreFacetLabels.indexOf(coreConstraint[i]) > -1
+	}, [0, 2]
+    )
+
+    // entry for 1 is coreConstraint[1], the relation.
+    // entries for all other indices that have entries in coreFacetLabels/coreFacetFillers
+    // are their entries in coreFacetStruct
+    return [ [1, coreConstraint[1] ] ].concat(
+	map(
+	    function(i) {
+		return [i, coreFacetFillers[ coreFacetLabels.indexOf(coreConstraint[i]) ] ]
+	    }, constraintEntriesInCoreFacet
+	)
+    )
+}
+
+// flip side of transformCoreConstraint: show a list of pairs
+// only for unknown entries. in the above case [[ 2, "?entry2"]]
+var transformCoreConstraintShowUnknown = function(coreConstraint, coreFacetLabels) {
+    // indices of entries in core constraint that have entries in coreFacetLabels
+    var constraintEntriesNotInCoreFacet = filter(
+	function(i) {
+	    coreFacetLabels.indexOf(coreConstraint[i]) == -1
+	}, [0, 2]
+    )
+
+    return map(
+	function(i) {
+	    return [ i, coreConstraint[i]]
+	}, constraintEntriesNotInCoreFacet
+    )
+}
+
+// get statement triple: given statement index,
+// find the statement in theGraph that matches it,
+// and transform {subject: A, predicate: B, object:C } to [ A, B, C]
+var getStatementTriple = function(stmtIx) {
+    var stmt = jsonData.theGraph[ jsonData.statements[stmtIx]]
+
+    return [ stmt.subject, stmt.predicate, stmt.object ]
+}
+
+// return all the statement indices from cluster[candidates] that fill the
+// given core constraint: for each [index, filler] pair the statement at index has the given filler
+var statementIxMatching = function(transformedCoreConstraint, cluster) {    
+    return filter(
+	function(stmtIndex) {
+	    var stmtTriple = getStatementTriple(stmtIndex)
+	    
+	    return all(
+		function(indexFillerConstraint) {
+		    return stmtTriple[ indexFillerConstraint[0] ] == indexFillerConstraint[1]
+		}, transformedCoreConstraint)
+	}, cluster["candidates"])
+    
+}
+
+
 //-------------------------------
-// Model
-// This is one incremental sample for the particle filter
+// Functions that extend a cluster by a given candidate (or don't extend it by the candidate)
 //-----
 
 // compute new cluster when the candidate is added
@@ -218,7 +281,8 @@ var extendAddCandidate = function(cluster, candidate) {
     return {
 	ere : cluster["ere"].concat( addEre ),
 	statements : newStatements,
-	corefacets : cluster["corefacets"],
+	corefacetLabels : cluster["corefacetLabels"],
+	corefacetFillers : cluster["corefacetFillers"],
 	coreconstraints : cluster["coreconstraints"],
 	candidates : newCandidates,
 	considered: newConsidered
@@ -238,27 +302,134 @@ var extendDropCandidate = function(cluster, candidate) {
     return {
 	ere : cluster["ere"],
 	statements : cluster["statements"],
-	corefacets : cluster["corefacets"],
+	corefacetLabels : cluster["corefacetLabels"],
+	corefacetFillers : cluster["corefacetFillers"],
 	coreconstraints : cluster["coreconstraints"],
 	candidates : otherCandidates,
 	considered: newConsidered
     }
 }
 
+// core extension: nothing to do. just remove the candidate from the core constraints
+var coreExtendNothingToDo = function(cluster, coreConstraint) {
+    var newCoreConstraints = myArrayMinusElt(cluster["coreconstraints"], coreConstraint)
+    
+    return {
+	ere : cluster["ere"],
+	statements : cluster["statements"],
+	corefacetLabels : cluster["corefacetLabels"],
+	corefacetFillers : cluster["corefacetFillers"],
+	coreconstraints : newCoreConstraints, 
+	candidates : cluster["candidates"],
+	considered: cluster["considered"]
+    }
+    
+}
 
+// found a candidate to fill a core constraint. add it
+var coreExtendAdd = function(cluster, coreConstraint, candidate) {
+    // omit the core constraint we just fulfilled
+    var newCoreConstraints = myArrayMinusElt(cluster["coreconstraints"], coreConstraint)
+
+    // enter the facets filling the core constraints into the cluster
+    var candidateTriple = getStatementTriple(candidate)
+    // transformedCoreConstraintShowUnknown has pairs [index, label]
+    // where label is a core facet label.
+    // there can only be one entry in that list
+    var transformedCoreIndexLabel = transformCoreConstraintShowUnknown(coreConstraint, cluster["corefacetLabels"])[0]
+    // we are now filling those labels, so keep them in corefacetLabels
+    var newCorefacetLabels = cluster["corefacetLabels"].concat(transformedCoreIndexLabel[1])
+    // the matching filler is found in candidate, at position index.
+    // and actually the transformedCoreConstraint2
+    var newCorefacetFillers = cluster["corefacetFillers"].concat( candidateTriple[transformedCoreIndexLabel[0]])
+
+    // display(["filling core facet", transformedCoreIndexLabel[1], candidateTriple[transformedCoreIndexLabel[0]]])
+    // display(["facet labels", newCorefacetLabels])
+    // display(["fillers", newCorefacetFillers])
+
+    // the rest is as in extendAddCandidate, so use that
+    return extendAddCandidate({
+	ere : cluster["ere"],
+	statements : cluster["statements"],
+	corefacetLabels : newCorefacetLabels,
+	corefacetFillers : newCorefacetFillers, 
+	coreconstraints : newCoreConstraints,
+	candidates : cluster["candidates"],
+	considered: cluster["considered"]
+    }, candidate)
+    
+}
+
+
+//-------------------------------
+// Model
+// Recursive sample for the particle filter
+//-----
+
+// choose a random core facet to extend the cluster by.
+// cluster: structure, as above
+// thresholdParameters: fuzzy threshold for membership.
+// (threshold not used by this function, but by extendCluster below
+var coreExtendCluster = function(cluster, thresholdParameters) {
+    if( cluster.coreconstraints.length == 0) {
+	// done with core constraints. now add arbitrary other elements
+	// display(["no more core constraints", cluster])
+	return extendCluster(cluster, thresholdParameters)
+    } else {
+	// core constraints remaining. randomly choose one of them.
+	var coreConstraint = uniformDraw(cluster["coreconstraints"])
+	// display(["coreConstraint", coreConstraint])
+
+	// coreConstraint has the form ?entry1 Rel ?entry2
+	// transform into a list of pairs [index, filler]
+	// for all indices in coreConstraint for which the filler is either Rel,
+	// or given in corefacets.
+	// If transformedCoreConstraint has a length of 3, then all constraint pieces
+	// already have entries in corefacets -- the constraint is already fulfilled.
+	// Length 1 means neither ?entry1 nor ?entry2 is in corefacets, and we cannot
+	// fulfill the constraint from the current candidates.
+	// Length 2: We need to find a candidate to fill this constraint.
+	var transformedCoreConstraint = transformCoreConstraint(coreConstraint,
+								cluster["corefacetLabels"], cluster["corefacetFillers"])
+	// display(["transformedCoreConstraint", transformedCoreConstraint])
+
+	if (transformedCoreConstraint.length == 3 ) {
+	    // nothing to do, this core constraint is already fulfilled
+	    // display("coreConstraint done")
+	    return coreExtendCluster(coreExtendNothingToDo(cluster, coreConstraint), thresholdParameters)
+	} else {
+	    if (transformedCoreConstraint.length == 1) {
+		// abandon this sample: we cannot possibly fill this constraint at this point
+		// display("coreConstraint not doable")
+		condition(false)
+	    } else {
+		// draw a random statement that can fill this core facet.
+		// we require that there is at least one statement that can fill the core facet,
+		// otherwise we abandon this cluster. 
+		var candidates = statementIxMatching(transformedCoreConstraint, cluster)
+		// display(["coreConstraint candidates", candidates])
+		if (candidates.length == 0) {
+		    condition(false)
+		} else {
+		    var candidate = uniformDraw(candidates)
+		    // display(["chosen candidate", candidate])
+		    return coreExtendCluster(coreExtendAdd(cluster, coreConstraint, candidate), thresholdParameters)
+		}
+	    }
+	}
+    }
+}
 
 // choose a random statement to extend the cluster by.
 // flip a coin to see if it should be added to the cluster, or dropped.
 //
-// cluster: structure 
-// candidates: list of indices of datapoints that can potentially be added to the cluster
-// muTau, sigmaTau: parameters of the threshold distribution
+// cluster: structure
+// thresholdParameters: threshold for membership
 var extendCluster = function(cluster, thresholdParameters) {
 
     if (cluster["candidates"].length == 0) {
 	// we have considered all candidates, the cluster is finished.
-	// returns the statements of the cluster
-	return cluster["statements"];
+	return cluster;
     } else {
 	// consider a candidate
 	var candidate = uniformDraw(cluster["candidates"])
@@ -300,8 +471,14 @@ var model = function(clusterSeed) {
     var scaleTau = 0.01
     // display("parameters")
     // display([shapeTau, scaleTau])
-    
-    return sort(statementIndicesToLabels(extendCluster(clusterSeed, {shape: shapeTau, scale: scaleTau})))
+
+    var cluster = coreExtendCluster(clusterSeed, {shape: shapeTau, scale: scaleTau})
+    return sort(
+	statementIndicesToLabels(
+	    cluster["statements"]
+	).concat(
+	    cluster["ere"]
+	))
 }
 			  
 
@@ -328,3 +505,5 @@ var Experiment = function () {
 var result = Experiment()
 
 json.write('aidaresult.json', result);
+
+"AIDA baseline done"
