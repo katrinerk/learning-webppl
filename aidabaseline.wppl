@@ -1,6 +1,6 @@
 // -----------
 // usage:
-// webppl myscratch.wppl --require webppl-json
+// webppl aidabaseline.wppl --require webppl-json
 
 
 // core data structure: cluster.
@@ -124,7 +124,7 @@ var averageProximity = function(cluster, candidate) {
 }
 
 //-------------------------------
-// Helper functions
+// Task-specific helper functions
 //-----
 
 
@@ -256,11 +256,74 @@ var statementIxMatching = function(transformedCoreConstraint, cluster) {
 
 
 //-------------------------------
+// Logical consistency
+//-----
+
+var subjectUniquePredicates = ["hasKBEntry", "type"];
+var objectUniquePredicates = [ ];
+
+// subject uniqueness:
+// if p is a subject unique predicate, then
+// if e1 p e2 and e1 p e3 then e2 = e3
+// This is a hard constraint
+var subjectUnique = function(clusterTriples, candidateTriple) {
+    // test for subject uniqueness only if our candidate has a predicate that is subject-unique
+    if (subjectUniquePredicates.indexOf(candidateTriple[1]) > -1) {
+	map(
+	    function(clusterTriple) {
+		condition(candidateTriple[0] != clusterTriple[0] || candidateTriple[1] != clusterTriple[1] || candidateTriple[2] == clusterTriple[2])
+	    }, clusterTriples)
+    }
+}
+
+// object uniqueness:
+// if p is an object unique predicate, then
+// if e1 p e2 and e3 p e2 then e1 = e3
+// This is a soft constraint
+var objectUnique = function(clusterTriples, candidateTriple) {
+    // test for subject uniqueness only if our candidate has a predicate that is subject-unique
+    if (objectUniquePredicates.indexOf(candidateTriple[1]) > -1) {
+	map(
+	    function(clusterTriple) {
+		factor(candidateTriple[2] != clusterTriple[2] || candidateTriple[1] != clusterTriple[1] || candidateTriple[0] == clusterTriple[0] ?
+		       0 : -3)
+	    }, clusterTriples)
+    }
+}
+
+// a list of all the constraints to apply.
+// enter all constraints to be tested here.
+var consistencyConstraints = [ subjectUnique, objectUnique ];
+
+// test the logical consistency of the given cluster if candidate was to be added to it
+// cluster: structure.
+// candidate: statement index
+var logicalConsistency = function(cluster, candidate) {
+    // map statements to triples
+    var candidateTriple = getStatementTriple(candidate)
+    var clusterTriples = map(
+	function(i) {
+	    return getStatementTriple(i)
+	}, cluster.statements)
+
+    // apply constraints
+    map(
+	function(constraintFn) {
+	    constraintFn(clusterTriples, candidateTriple)
+	}, consistencyConstraints)
+}
+
+//-------------------------------
 // Functions that extend a cluster by a given candidate (or don't extend it by the candidate)
 //-----
 
 // compute new cluster when the candidate is added
 var extendAddCandidate = function(cluster, candidate) {
+    
+    // apply constraints
+    logicalConsistency(cluster, candidate);
+    
+    // compute updated cluster components
     var addEre = mySetDiff( ereInStatement(candidate), cluster["ere"])
     var newStatements = cluster["statements"].concat(candidate)
     var newConsidered = cluster["considered"].concat(candidate)
