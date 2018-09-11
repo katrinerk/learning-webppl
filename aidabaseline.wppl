@@ -919,7 +919,7 @@ var model = function() {
 			  
 
 var Experiment = function () {
-    return Infer( { method : "SMC", particles : 100 }, model)
+    return Infer( { method : "SMC", particles : 1000 }, model)
 }
 
 //-------------------------------
