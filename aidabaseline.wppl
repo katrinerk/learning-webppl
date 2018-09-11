@@ -20,7 +20,9 @@
 //           they are alternative cluster seeds to start from
 //           an entry point is a structure that describes a cluster,
 //           the core data structure described above
+display("reading aidagraph.json")
 var aidaData = json.read('aidagraph.json');
+display("done reading aidagraph.json")
 
 //------------------------------------------------
 // General functions
@@ -226,17 +228,20 @@ var aidaEreInStatement = function(statement) {
 
 // given a list of ERE names and a list of statements,
 // find the statements adjacent to each ERE,
-// and form the union of all those with the old statements
-var aidaAddStatementsFromEre = function(oldStatements, EreList) {
+// keeping only the ones that are not already in the given cluster
+var aidaCandidatesFromEre = function(cluster, ereList) {
     return reduce(
 	function(ere, acc1) {
 	    return reduce(
 		function(stmt, acc2) {
-		    return acc2.indexOf(stmt) > -1 ? acc2 : acc2.concat( stmt )
+		    return (cluster.considered.indexOf(stmt) > -1 ||
+			    cluster.candidates.indexOf(stmt) > -1 ||
+			    acc2.indexOf(stmt) > -1) ?
+			acc2 : acc2.concat( stmt )
 		},
 		acc1, aidaData.theGraph[ere].adjacent)    
 	},
-	oldStatements, EreList)
+	[ ], ereList)
 }
 
 // get statement triple: given statement index,
@@ -244,7 +249,6 @@ var aidaAddStatementsFromEre = function(oldStatements, EreList) {
 // and transform {subject: A, predicate: B, object:C } to [ A, B, C]
 var aidaStatementTriple = function(stmt) {
     var stmtEntry = aidaEntry(stmt)
-
     return [ stmtEntry.subject, stmtEntry.predicate, stmtEntry.object ]
 }
 
@@ -388,6 +392,56 @@ var logicalConsistency = function(cluster, candidate) {
 	function(constraintFn) {
 	    constraintFn(cluster, candidateEntry)
 	}, unaryConstraints)
+}
+
+// find candidates for which we have already accepted/rejected duplicates (modulo coref).
+// accept/reject them accordingly.
+// If we accept one that is a coref-duplicate, we get a bonus.
+// returns an updated list of candidates.
+var tripleEqualModuloUnif = function(cluster, t1, t2) {
+    return t1[1] == t2[1] &&
+	unifierEquals(t1[0], t2[0], cluster.coref.unifier) &&
+	unifierEquals(t1[2], t2[2], cluster.coref.unifier)
+}
+
+var tripleInTripleSet = function(cluster, triple, tripleSet) {
+    return any(
+	function(otherTriple) {
+	    tripleEqualModuloUnif(cluster, triple, otherTriple)
+	}, tripleSet)
+}
+
+var candidateIsNonDuplicate = function(cluster, candidate, clusterTriples, nonClusterTriples) {
+    var candidateTriple = aidaStatementTriple(candidate)
+
+    if (tripleInTripleSet(cluster, candidateTriple, clusterTriples)) {
+	factor(0.1)
+	return false
+    } else {
+	if (tripleInTripleSet(cluster, candidateTriple, nonClusterTriples)) {
+	    return false
+	} else {
+	    return true
+	}
+    }
+}
+
+
+var candidateRemoveDuplicates = function(cluster, candidates) {
+    var clusterTriples = map(
+	function(i) {
+	    return aidaStatementTriple(i)
+	}, cluster.cluster.statements)
+
+    var nonClusterTriples = map(
+	function(i) {
+	    return aidaStatementTriple(i)
+	}, mySetDiff(cluster.considered, cluster.cluster.statements))
+
+    return filter(
+	function(c) {
+	    return candidateIsNonDuplicate(cluster, c, clusterTriples, nonClusterTriples)
+	}, candidates)
 }
 
 //-------------------------------
@@ -592,125 +646,70 @@ var clusterQueryAdd = function(cluster, queryConstraint, candidate) {
 // Handling coreference
 //-----
 
-// given a list of EREs for which we still need to determine coreference:
-// determine their adjacent coref groups, sample whether they are a member.
-// If they are member of a coref group, sample membership of all that coref group's
-// potential member EREs.
-// For all EREs for which we sample that they are members, again determine their
-// adjacent coref groups and so on.
-var corefDo = function(cluster, ereList) {
-    // returns a structure containing: 
-    // newERE, newCluster.
-    return corefSample(cluster, ereList, [ ])
-}
-
-// throw a coin to see whether this coref statement should be a new member of the cluster
-var corefIsNewMember = function(cluster, corefStmt) {
+// throw a coin to see whether this coref statement should be a  member of the cluster
+var corefIsMember = function(cluster, corefStmt) {
     var corefGroup = aidaData.theGraph[corefStmt].cluster
     var member = aidaData.theGraph[corefStmt].clusterMember
     var confidence = aidaData.theGraph[corefStmt].conf
 
     // coref group not in the cluster yet, and we've sampled that this ere is in the group
-    return (cluster.cluster.corefGroups.indexOf(corefGroup) == -1 && cluster.coref.corefGroupMember(corefGroup, member, confidence))   
+    return (cluster.coref.corefGroupMember(corefGroup, member, confidence))   
 }
 
-var corefSample = function(cluster, todoEreList, doneEreList) {
-    if (todoEreList.length == 0) {
-	// display("done with coref")
-	return {
-	    newCluster : cluster,
-	    newEre : doneEreList
-	}
-    } else {
+// for all coref statements, decide whether they are true in this sample. 
+var corefDo = function(cluster) {
+    // returns a structure containing: 
+    // newERE, newCluster.
 
-	// display(["coref starting with ERE", todoEreList])
-	
-	// which coref statements are we adding?
-	// the ones for which coref groups are not in the cluster yet, and we've sampled
-	// that this ere is in the group
-	var newCorefStmtsFromEre = reduce(
-	    function(ere, acc) {
-		return (_.has(aidaData.theGraph, ere) & _.has(aidaData.theGraph[ere], "adjacentCoref")) ?
-		    acc.concat(filter(
-			function(corefStmt) {
-			    return corefIsNewMember(cluster, corefStmt)
-			}, aidaData.theGraph[ere].adjacentCoref))
-		:
-		acc
-	    }, [ ], todoEreList
-	)
+    // decide coreference for all groups
+    var corefStmts = filter(
+	function(label) {
+	    return (aidaData.theGraph[label].type == "ClusterMembership" &&
+		    corefIsMember(cluster, label))
+	}, _.keys(aidaData.theGraph))
 
-	// display(["adding coref statements from EREs:", newCorefStmtsFromEre])
-
-	// new coref groups
-	var newCorefGroups = myUnique(map(
+    var corefGroups = myUnique(
+	map(
 	    function(corefStmt) {
 		return aidaData.theGraph[corefStmt].cluster
-	    }, newCorefStmtsFromEre
-	))
+	    }, corefStmts)
+    )
 
-	// display(["new coref groups", newCorefGroups])
+    var cluster1 = clusterObjectUpdateCluster(cluster,
+					      cluster.cluster.ere, 
+					      cluster.cluster.statements,
+					      corefStmts, corefGroups)
 
-	// additional coref statements from these new groups
-	var newCorefStmtsFromGroup = reduce(
-	    function(corefGroup, acc) {
-		return acc.concat(filter(
-		    function(corefStmt) {
-			return corefIsNewMember(cluster, corefStmt)
-		    }, aidaData.theGraph[corefGroup].adjacentMembers))
-	    }, [ ], newCorefGroups)
+    var newUnifier = reduce(
+	function(corefStmt, acc) {
+	    var clMember = aidaData.theGraph[corefStmt].clusterMember
+	    var corefGroup = aidaData.theGraph[corefStmt].cluster
+	    var clPrototype = aidaData.theGraph[ corefGroup ].prototype
 
-	// display(["new coref stmts from groups", newCorefStmtsFromGroup])
-	
-	// new ERE: coref members from the new coref statements, but not in the cluster yet
-	var newEre = filter(
-	    function(ere) {
-		return cluster.cluster.ere.indexOf(ere) == -1
-	    }, map(
-		function(corefStmt) {
-		    return aidaData.theGraph[corefStmt].clusterMember
-		}, newCorefStmtsFromGroup)
-	)
+	    return unifierUnify(clMember, clPrototype, acc)
+	}, cluster1.coref.unifier, corefStmts)
 
-	// display(["new ERE", newEre])
+    var cluster2 = clusterObjectUpdateCoref(cluster1,
+					    newUnifier,
+					    cluster1.coref.corefGroupMember)
+    
 
-	// make new cluster with all this info:
-	// add both sets of coref statements, set of new coref groups, new EREs
-	
-	var cluster1 = clusterObjectUpdateCluster(cluster,
-						  myUnique(cluster.cluster.ere.concat(newEre)),
-						  cluster.cluster.statements,
-						  myUnique(cluster.cluster.corefStatements.concat(newCorefStmtsFromEre).concat(newCorefStmtsFromGroup)),
-						  myUnique(cluster.cluster.corefGroups.concat(newCorefGroups)))
-
-	// display(["cluster now corefStmt", cluster1.cluster.corefStatements, "corefGroups", cluster1.cluster.corefGroups])
-	
-	// do unification based on all coref statements
-	var cluster2 = reduce(
-	    function(corefStmt, clAcc) {
-		var clMember = aidaData.theGraph[corefStmt].clusterMember
-		var corefGroup = aidaData.theGraph[corefStmt].cluster
-		var clPrototype = aidaData.theGraph[ corefGroup ].prototype
-
-		// display(["now unifying", clMember, clPrototype])
-
-		return clusterObjectUpdateCoref(clAcc, unifierUnify(clMember, clPrototype, clAcc.coref.unifier), clAcc.coref.corefGroupMember)
-	    }, cluster1, myUnique(newCorefStmtsFromEre.concat(newCorefStmtsFromGroup)))
-
-	// display(["changed unifiers",
-	// 	 map(
-	// 	     function(ix) {
-	// 		 return [seqOfEres[ix], cluster1.coref.unifier[ix], cluster2.coref.unifier[ix]]
-	// 	     }, filter(
-	// 		 function(ix) {
-	// 		     return cluster2.coref.unifier[ix] != cluster1.coref.unifier[ix]
-	// 		 }, _.range(cluster2.coref.unifier.length)))
-	// 	])
-
-	return corefSample(cluster2, newEre, doneEreList.concat(todoEreList))
-    }
+    return cluster2
 }
 
+// determine EREs that are not in the cluster yet but that are
+// in the same equivalence groups as the eres in 'eres'
+var corefAdditionalEres = function(cluster, eres) {
+    return filter(
+	function(ere) {
+	    return _.has(aidaData.theGraph, ere) &&
+		cluster.cluster.ere.indexOf(ere) == -1 &&
+		any(
+		    function(ere2) {
+			unifierEquals(ere, ere2, cluster.coref.unifier)
+		    }, eres)
+	}, seqOfEres)
+}
 
 //-------------------------------
 // Extending the cluster
@@ -841,29 +840,32 @@ var recursivelyExtendCluster = function(cluster, thresholdParameters) {
 	// newCluster: updated cluster
 	// newERE: EREs added to the frontier of the cluster
 	// newStatements: statements added to the cluster
-	var result1 = extendClusterOnce(cluster, thresholdParameters)
+	var result = extendClusterOnce(cluster, thresholdParameters)
 	
 	// take coreference into account
-	var result2 = corefDo(result1.newCluster, result1.newERE)
+	var newERE = corefAdditionalEres(result.newCluster, result.newERE)
 
 	// candidates: old candidates plus statements adjacent to the new EREs,
 	// minus statements already considered
-	var updatedCandidates = mySetDiff(
-	    aidaAddStatementsFromEre(result2.newCluster.candidates, result2.newEre),
-	    result2.newCluster.considered)
+	var newCandidates = candidateRemoveDuplicates(result.newCluster,
+						      aidaCandidatesFromEre(result.newCluster, newERE))
 
-	var cluster2 = clusterObjectUpdateCandidates(result2.newCluster, updatedCandidates)
+
+	var cluster1 = clusterObjectUpdateCluster(result.newCluster,
+						  result.newCluster.cluster.ere.concat(newERE),
+						  result.newCluster.cluster.statements,
+						  result.newCluster.cluster.corefStatements,
+						  result.newCluster.cluster.corefGroups)
+
+	var cluster2 = clusterObjectUpdateCandidates(cluster1, cluster1.candidates.concat(newCandidates))
 	
 	// check logical consistency constraints for the new statements
 	map(
 	    function(candidate) {
 		logicalConsistency(cluster2, candidate)
-	    }, result1.newStatements
+	    }, result.newStatements
 	)
 
-	// any candidate statements that are duplicates of the statement we just added?
-	// HIER: not implemented yet
-	
 	// and repeat
 	return recursivelyExtendCluster( cluster2, thresholdParameters)
     }
@@ -881,39 +883,49 @@ var model = function() {
     // to remember which EREs belong to which coref group
     var corefGroupMember = mem(function(corefGroup, ere, confidence) {
 	return flip(confidence)
-    })    
+    })
 
     // from this cluster seed, make a cluster of our internal format
-    var clusterMyFormat = clusterObjectInit(clusterSeed, corefGroupMember)
-    
-    // compute coref membership for the initial EREs
-    var clusterEreCoref = corefDo(clusterMyFormat, clusterMyFormat.cluster.ere)
+    var cluster0 = clusterObjectInit(clusterSeed, corefGroupMember)
 
-    // and compute candidates
-    var clusterInitial = clusterObjectUpdateCandidates(clusterEreCoref.newCluster,
-						 mySetDiff(aidaAddStatementsFromEre([ ], clusterEreCoref.newCluster.cluster.ere),
-							   clusterEreCoref.newCluster.cluster.statements))
+    // compute coref membership throughout
+    var cluster1 = corefDo(cluster0)
 
+    // compute additional EREs that are coreferent with the ones in the cluster
+    var newEres = corefAdditionalEres(cluster1, cluster1.cluster.ere)
+    var cluster2 = clusterObjectUpdateCluster(cluster1, cluster1.cluster.ere.concat(newEres), cluster1.cluster.statements,
+					      cluster1.cluster.corefStatements, cluster1.cluster.corefGroups)
 
+    // compute candidates
+    var candidates0 = aidaCandidatesFromEre(cluster2, cluster2.cluster.ere.concat(newEres))
+
+    // filter candidates: remove the ones that are equal to ones we already have.
+    var candidates1 = candidateRemoveDuplicates(cluster2, candidates0)
+    // display(["Initial: removing duplicate candidates. before:", candidates0.length, "after:", candidates1.length])
+
+    // assemble initial cluster
+    var clusterInitial = clusterObjectUpdateCandidates(cluster2, candidates1)
+						       
+    // now do the work
     var clusterFinal = recursivelyExtendCluster(clusterInitial, aidaData.parameters)
-    
+
+    // and report on results
     return {
 	statements : sort(clusterFinal.cluster.statements.concat(
-	    clusterFinal.cluster.ere).concat(
-		clusterFinal.cluster.corefStatements).concat(
-		    clusterFinal.cluster.corefGroups)),
+	    clusterFinal.cluster.corefStatements)),
 	failedQueries : clusterFinal.query.failed
     }
 }
 			  
 
 var Experiment = function () {
-    return Infer( { method : "SMC", particles : 1 }, model)
+    return Infer( { method : "SMC", particles : 100 }, model)
 }
 
 //-------------------------------
 var result = Experiment()
 
+display("Writing results to aidaresult.json")
 json.write('aidaresult.json', result);
 
-"AIDA baseline done. Results written to aidaresult.json."
+"AIDA baseline done."
