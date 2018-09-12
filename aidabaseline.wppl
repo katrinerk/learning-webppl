@@ -29,35 +29,21 @@ var aidaData = json.read('aidagraph.json');
 //------------------------------------------------
 
 // remove duplicates in an array
-var myUnique = function(arr) {
+var myArrUnique = function(arr) {
     return reduce(function(index, acc) {
 	return arr.indexOf( arr[ index ] ) < index ? acc : [ arr[index ]].concat(acc)
     }, [ ],  _.range(arr.length))
 }
 
-// add a second array to a first one while omitting duplicates in the 2nd array
-var myAddUnique = function(arr1, arr2) {
-    return reduce( function(entry, acc) {
-	return arr1.indexOf(entry) > -1 ? acc : [ entry ].concat(acc)
-    }, arr1, arr2)
-}
 
 // return all members in array1 that are not in array2
-var mySetDiff = function(arr1, arr2) {
+var myArrDiff = function(arr1, arr2) {
     return filter(
 	function(entry) {
 	    return arr2.indexOf(entry) == -1
 	}, arr1)
 }
 
-// intersection of two arrays
-var myIntersection = function(array1, array2) {
-    return filter(
-	function(e) {
-	    return array2.indexOf(e) > -1
-	},
-	array1)
-}
 	
 
 // return array minus all elements that are equal to elt
@@ -65,7 +51,43 @@ var myArrayMinusElt = function(somearray, elt) {
     return filter(function(e) { return e != elt }, somearray)
 }
 
+var mySetEmpty = function(n) {
+    return mapN(function(i) { return 0 }, n)
+}
 
+var mySetLength = function(set) {
+    return sum(set)
+}
+
+var mySetAdd = function(set, k) {
+    return mapN(function(i) { return i == k ? 1 : set[i] }, set.length)
+}
+
+// set difference: make sure we return it as 1's and 0's rather than true/false
+var mySetDiff = function(set1, set2) {
+    return mapN(function(i) { return 0 + (set1[i] && !set2[i]) }, set1.length)
+}
+
+var mySetUnion = function(set1, set2) {
+    return mapN(function(i) { return 0 + (set1[i] || set2[i]) }, set1.length)
+}
+
+var mySetUpdate = function(set, arr) {
+    return reduce(
+	function(ix, accSet) {
+	    return mySetAdd(accSet, ix)
+	}, set, arr)
+}
+
+// return the indices that are set to true
+var mySetDecode = function(set) {
+    return filter( function(i) { return set[i] }, _.range(set.length))
+}
+
+// draw a random index from the set
+var mySetDraw = function(set) {
+    return categorical({ps: set, vs: _.range(set.length)})
+}
 
 //------------------------------------------------
 // Coreference handling via unification
@@ -78,7 +100,7 @@ var seqConstraintVar = filter(
     function(entry) {
 	// retain only variables, i.e. stuff that doesn't have an (ERE) entry in the graph
 	return !(_.has(aidaData.theGraph, entry))
-    }, myUnique(
+    }, myArrUnique(
 	// remove duplicates in
 	// flattened arguments of query constraints
 	reduce(
@@ -93,12 +115,28 @@ var seqConstraintVar = filter(
 
 // returns the index of an ERE or constraint variable
 var unifierIndex = function(ere) {
-    return _.has(aidaData.theGraph, ere) ? aidaData.theGraph[ere].index : (aidaData.eeLength + seqConstraintVar.indexOf(ere))
+    return _.has(aidaData.theGraph, ere) ? aidaData.theGraph[ere].index : (aidaData.ere.length + seqConstraintVar.indexOf(ere))
 }
 
 // returns the unifier of an ERE or constraint variable
 var unifierGet = function(ere, unifInfo) {
     return unifInfo[ unifierIndex(ere) ]
+}
+
+// returns all EREs that have a particular unifier
+var unifierGetOriginals = function(ereUnif, unifInfo) {
+    return map(
+	// map indices to entity/event labels
+	function(i) {
+	    return aidaData.ere[i]
+	},
+	// indices of unifInfo that have ereUnif as unifier
+	filter(
+	    function(i) {
+		return unifInfo[i] == ereUnif
+	    }, _.range(unifInfo.length)
+	)
+    )
 }
 
 // true if two EREs or constraint variables have the same unifier
@@ -148,7 +186,7 @@ var unifierUnify = function(ere1, ere2, unifInfo) {
 
 // make an initial unifier that maps each ERE or variable to itself.
 var unifierInitial = function() {
-    return _.range(aidaData.eeLength + seqConstraintVar.length)
+    return _.range(aidaData.ere.length + seqConstraintVar.length)
 }
 
 // unbound core variable:
@@ -158,14 +196,17 @@ var unifierVarUnbound = function(coreVar, unifInfo) {
     return !(_.has(aidaData.theGraph, coreVar)) && unifierGet(coreVar, unifInfo) == unifierIndex(coreVar)
 }
 
-// find candidates for which we have already accepted/rejected duplicates (modulo coref).
-// accept/reject them accordingly.
-// If we accept one that is a coref-duplicate, we get a bonus.
-// returns an updated list of candidates.
-var unifierStmtEqual = function(cluster, t1, t2) {
-    return t1.predicate == t2.predicate &&
-	unifierEquals(t1.subject, t2.subject, cluster.corefUnifier) &&
-	unifierEquals(t1.object, t2.object, cluster.corefUnifier)
+// Given two statement labels, determine whether they are the same statement
+// modulo coref
+var unifierStmtEqual = function(l1, l2, unifInfo) {
+    var sEntry1 = aidaEntry(l1)
+    var sEntry2 = aidaEntry(l2)
+    
+    // display(["HIER unifierStmtEqual", unifierGet(sEntry1.subject, unifInfo), unifierGet(sEntry2.subject, unifInfo)])
+    
+    return sEntry1.predicate == sEntry2.predicate &&
+	unifierEquals(sEntry1.subject, sEntry2.subject, unifInfo) &&
+	unifierEquals(sEntry1.object, sEntry2.object, unifInfo)
 }
 
 //------------------------------------------------
@@ -177,12 +218,74 @@ var aidaEntry = function(label) {
     return aidaData.theGraph[ label ]
 }
 
-var aidaIsEre = function(label) {
-    return aidaData.theGraph[label].type == "Entity" ||
-	aidaData.theGraph[label].type == "Event" ||
-	aidaData.theGraph[label].type == "Relation"
+var aidaIndex = function(label) {
+    return aidaEntry(label).index
 }
 
+var aidaIsEre = function(label) {
+    return _.has(aidaData.theGraph, label) &&
+	(aidaData.theGraph[label].type == "Entity" ||
+	 aidaData.theGraph[label].type == "Event" ||
+	 aidaData.theGraph[label].type == "Relation")
+}
+
+//
+var aidaStmtSetUpdate = function(set, arr) {
+    return mySetUpdate(set, map(function(stmt) { return aidaIndex(stmt) }, arr))
+}
+
+// given a mySet of statements, map it to the statement labels
+var aidaDecodeStmtSet = function(set) {
+    return map(function(i) { return aidaData.statements[i] }, mySetDecode(set))
+}
+
+var aidaDecodeEreArray = function(ereIndices) {
+    return map(function(i) { return aidaData.ere[i] }, ereIndices)
+}
+
+// given a list of EREs, map it to their unifiers (ee indices), and remove duplicates
+var aidaCanonicalEres = function(eres, unifInfo) {
+    return myArrUnique(
+	map(
+	    function(ere) {
+		return unifierGet(ere, unifInfo)
+	    }, eres
+	)
+    )
+}
+
+// given an array of statements, determine unification aliases, 
+// and return as a mySet.
+// don't include items listed in excludeme
+// add the new statements and all their duplicates to the set
+var aidaStatementAliases = function(statements, excludeme, unifInfo) {
+    var extendedStatements = filter(
+	function(stmt) {
+	    return (!excludeme[ aidaIndex(stmt) ] &&
+		    any(
+			function(stmt2) {
+			    return unifierStmtEqual(stmt, stmt2, unifInfo)
+			}, statements))
+		   }, aidaData.statements)
+
+    return aidaStmtSetUpdate(mySetEmpty(aidaData.statements.length), extendedStatements)
+}
+
+// find all statements adjacent to the given EREs and aliases of the EREs,
+// and return as a mySet.
+var aidaCandidates = function(ereIndices, unifInfo) {
+    // for all given EREs: use unifierGetOriginals to determine aliases,
+    // then adjacent statements in theGraph
+    var candidates = reduce(
+	function(ereIndex, acc1) {
+	    return reduce(
+		function(ere, acc2) {
+		    return _.has(aidaData.theGraph, ere) ? aidaData.theGraph[ere].adjacent.concat(acc2) : acc2
+		}, acc1, unifierGetOriginals(ereIndex, unifInfo))
+	}, [ ], ereIndices)
+
+    return aidaStmtSetUpdate(mySetEmpty(aidaData.statements.length), candidates)
+}
 
 // find all EREs that are mentioned in a given statement
 var aidaEreInStatement = function(statement) {
@@ -191,7 +294,7 @@ var aidaEreInStatement = function(statement) {
     
     // return subject and objects for this entry
     // that again have an entry in "theGraph" and have an ERE type
-    return myUnique(
+    return myArrUnique(
 	filter(aidaIsEre, map(
 		function(role) {
 		    return statementEntry[role] },
@@ -202,32 +305,9 @@ var aidaEreInStatement = function(statement) {
 }
 
 
-// given a list of ERE names and a cluster,
-// find the statements adjacent to each ERE,
-// keeping only the ones that are not already in the given cluster
-// and that have a proximity to the cluster of greater than zero
-var aidaCandidatesFromEre = function(cluster, ereList) {
-    return filter(
-	function(stmt) {
-	    return candidateProximity(cluster, stmt) > 0
-	}, reduce(
-	    function(ere, acc1) {
-		return reduce(
-		    function(stmt, acc2) {
-			return (cluster.considered.indexOf(stmt) > -1 ||
-				cluster.candidates.indexOf(stmt) > -1 ||
-				acc2.indexOf(stmt) > -1) ?
-			    acc2 : acc2.concat( stmt )
-		    },
-		    acc1, aidaData.theGraph[ere].adjacent)    
-	    },
-	    [ ], ereList)
-    )
-}
-
-// return all the statements  from cluster.candidates that fill the
+// return all the statements from cluster.candidates that fill the
 // given query constraint.
-var aidaStatementMatchingConstraint = function(queryConstraint, cluster) {    
+var aidaStatementMatchingConstraint = function(queryConstraint, cluster) {
     return filter(
 	function(stmt) {
 	    var stmtEntry = aidaEntry(stmt)
@@ -239,8 +319,7 @@ var aidaStatementMatchingConstraint = function(queryConstraint, cluster) {
 		unifierUnifiable(queryConstraint[0], stmtEntry.subject, cluster.corefUnifier) &&
 		unifierUnifiable(queryConstraint[2], stmtEntry.object, cluster.corefUnifier)
 	    
-	}, cluster.candidates)
-   
+	}, aidaDecodeStmtSet(cluster.candidates))  
 }
 
 
@@ -270,7 +349,7 @@ var candidateProximity = function(cluster, candidate) {
 
 // candidate proximity as proximity to a random cluster member
 var randomMemberProximity = function(cluster, candidate) {
-    var randomMember = uniformDraw(cluster.statements)
+    var randomMember = aidaData.statements[ mySetDraw(cluster.statements)]
     return aidaProximity(randomMember, candidate)
 }
 
@@ -283,7 +362,7 @@ var averageProximity = function(cluster, candidate) {
 	map(
 	    function(stmt) {
 		return aidaProximity(stmt, candidate)
-	    }, cluster.statements))  / cluster.statements.length
+	    }, aidaDecodeStmtSet(cluster.statements)))  / mySetLength(cluster.statements)
 }
 
 
@@ -360,7 +439,7 @@ var unaryConstraints = [ constUseTypes, constConfidence ];
 var logicalConsistency = function(cluster, candidate) {
     // map statements to entries
     var candidateEntry = aidaEntry(candidate) 
-    var clusterEntries = map(aidaEntry, cluster.statements)
+    var clusterEntries = aidaDecodeStmtSet(cluster.statements)
 
     // apply binary constraints
     map(
@@ -375,87 +454,42 @@ var logicalConsistency = function(cluster, candidate) {
 	}, unaryConstraints)
 }
 
-var stmtIsDuplicate = function(cluster, stmt, stmtSet) {
-    return any(
-	function(otherEntry) {
-	    unifierStmtEqual(cluster, stmt, otherEntry)
-	}, stmtSet)
-}
-
-var candidateIsNonDuplicate = function(cluster, candidateEntry, memberEntries, nonmemberEntries) {
-    if (stmtIsDuplicate(cluster, candidateEntry, memberEntries)) {
-	// factor(0.1)
-	return false
-    } else {
-	if (stmtIsDuplicate(cluster, candidateEntry, nonmemberEntries)) {
-	    return false
-	} else {
-	    return true
-	}
-    }
-}
-
-
-var candidateRemoveDuplicates = function(cluster, candidates) {
-    var clusterEntries = map(aidaEntry, cluster.statements)
-    var clusterNonEntries = map(aidaEntry, mySetDiff(cluster.considered, cluster.statements))
-	
-    return filter(
-	function(candidate) {
-	    return candidateIsNonDuplicate(cluster, aidaEntry(candidate), clusterEntries, clusterNonEntries)
-	}, candidates)
-}
-
 //-------------------------------
 // Functions that check and manipulate cluster objects
 //-----
-
-var clusterObjectInit = function(clusterSeed, corefFn) {
-    // make a cluster of our internal format
-    return {
-	// cluster members
-	ere : clusterSeed.ere,
-	statements : clusterSeed.statements,
-	corefStatements : [ ],
-	// query (core facets)
-	queryConstraints : clusterSeed.queryConstraints,
-	queryFailed : [ ],
-	// to handle coreference, we carry around a unifier object
-	// that records which EREs corefer, as well as a function
-	// that shows which coref statements are true
- 	corefUnifier: unifierInitial(),
-	corefFn : corefFn,
-	// statements adjacent to EREs in the cluster for which we have not decided
-	// yet whether they should go in
-	candidates : [ ],
-	// statements for which we have already decided whether they go in the cluster or not
-	considered : clusterSeed.statements
-    }
-}
-
 
 var clusterNoMoreQueryConstraints = function(cluster) {
     return cluster.queryConstraints.length == 0
 }
 
 var clusterNoMoreCandidateStatements = function(cluster) {
-    return cluster.candidates.length == 0
+    return mySetLength(cluster.candidates) == 0
 }
 
 // compute new cluster when the candidate is added
 var clusterAddCandidate = function(cluster, candidate) {
     
     // compute updated cluster components
-    var newEre = mySetDiff( aidaEreInStatement(candidate), cluster.ere)
-    var updatedStatements = cluster.statements.concat(candidate)
-    var updatedConsidered = cluster.considered.concat(candidate)
-    var updatedCandidates = myArrayMinusElt(cluster.candidates, candidate)
+    var newEre = myArrDiff(
+	aidaCanonicalEres(
+	    aidaEreInStatement(candidate),
+	    cluster.corefUnifier),
+	cluster.ere)
+    // display(["clusterAddCandidate new ere", aidaDecodeEreArray(newEre)])
+
+    var newStatements = aidaStatementAliases( [candidate], cluster.considered, cluster.corefUnifier)
+    var updatedStatements = mySetUnion(cluster.statements, newStatements)
+    var updatedConsidered = mySetUnion(cluster.considered, newStatements)
+    var updatedCandidates = mySetDiff(
+	mySetUnion(
+	    cluster.candidates,
+	    aidaCandidates(newEre, cluster.corefUnifier)), 
+	updatedConsidered)
     
     var clusterUpdated = {
 	// cluster members
 	ere : cluster.ere.concat(newEre), 
 	statements : updatedStatements,
-	corefStatements : cluster.corefStatements,
 	// query (core facets)
 	queryConstraints : cluster.queryConstraints,
 	queryFailed : cluster.queryFailed,
@@ -477,18 +511,15 @@ var clusterAddCandidate = function(cluster, candidate) {
 
 // compute new cluster when the candidate is not added
 var clusterDropCandidate = function(cluster, candidate) {
-    var updatedCandidates = myArrayMinusElt(cluster.candidates, candidate)
-    var updatedConsidered = cluster.considered.concat(candidate)
+    var newStatements = aidaStatementAliases( [candidate], cluster.considered, cluster.corefUnifier)
 
-    // display("not adding")
-    // display(["cand", updatedCandidates])
-    // display(["stmt CAP cand", myIntersection(cluster.statements, updatedCandidates)])
-
+    var updatedConsidered = mySetUnion(cluster.considered, newStatements)
+    var updatedCandidates = mySetDiff(cluster.candidates, newStatements)
+    
     var updatedCluster = {
 	// cluster members
 	ere : cluster.ere,
 	statements : cluster.statements, 
-	corefStatements : cluster.corefStatements,
 	// query (core facets)
 	queryConstraints : cluster.queryConstraints,
 	queryFailed : cluster.queryFailed,
@@ -500,9 +531,6 @@ var clusterDropCandidate = function(cluster, candidate) {
 	// statements for which a decision has been made
 	considered : updatedConsidered
     }
-    
-
-    // display(["update dropCandidate yields", updated2.candidates])
     
     return {
 	newCluster : updatedCluster,
@@ -517,7 +545,6 @@ var clusterQueryNothingToDo = function(cluster, queryConstraint) {
 	// cluster members
 	ere : cluster.ere,
 	statements : cluster.statements, 
-	corefStatements : cluster.corefStatements,
 	// query (core facets)
 	queryConstraints : myArrayMinusElt(cluster.queryConstraints, queryConstraint),
 	queryFailed : cluster.queryFailed,
@@ -543,7 +570,6 @@ var clusterQueryFailed = function(cluster, queryConstraint) {
 	// cluster members
 	ere : cluster.ere,
 	statements : cluster.statements, 
-	corefStatements : cluster.corefStatements,
 	// query (core facets)
 	queryConstraints : myArrayMinusElt(cluster.queryConstraints, queryConstraint),
 	queryFailed : cluster.queryFailed.concat(queryConstraint),
@@ -568,7 +594,6 @@ var clusterQueryFailed = function(cluster, queryConstraint) {
 // found a candidate to fill a query constraint. add it
 var clusterQueryAdd = function(cluster, queryConstraint, candidate) {
     
-
     // unify the first argument of the candidate with the first variable in the constraint,
     // and the second argument of the candidate with the second variable in the constraint
     var candidateEntry = aidaEntry(candidate)
@@ -579,7 +604,6 @@ var clusterQueryAdd = function(cluster, queryConstraint, candidate) {
 	// cluster members
 	ere : cluster.ere,
 	statements : cluster.statements, 
-	corefStatements : cluster.corefStatements,
 	// query (core facets)
 	queryConstraints : myArrayMinusElt(cluster.queryConstraints, queryConstraint),
 	queryFailed : cluster.queryFailed,
@@ -603,28 +627,34 @@ var clusterQueryAdd = function(cluster, queryConstraint, candidate) {
 //-----
 
 // throw a coin to see whether this coref statement should be a  member of the cluster
-var corefIsMember = function(cluster, corefStmt) {
+var corefIsMember = function(corefFn, corefStmt) {
     var corefGroup = aidaData.theGraph[corefStmt].cluster
     var member = aidaData.theGraph[corefStmt].clusterMember
     var confidence = aidaData.theGraph[corefStmt].conf
 
     // coref group not in the cluster yet, and we've sampled that this ere is in the group
-    return (cluster.corefFn(corefGroup, member, confidence))   
+    return (corefFn(corefGroup, member, confidence))   
 }
 
-// for all coref statements, decide whether they are true in this sample. 
-var corefDo = function(cluster) {
-    // returns a structure containing: 
-    // newERE, newCluster.
-
-    // decide coreference for all groups
-    var corefStmts = filter(
+// given a coref function, return the list of coref statements
+// that are set to true by the coref function
+var corefStmtsTrueBy = function(corefFn) {
+    return filter(
 	function(label) {
 	    return (aidaData.theGraph[label].type == "ClusterMembership" &&
-		    corefIsMember(cluster, label))
+		    corefIsMember(corefFn, label))
 	}, _.keys(aidaData.theGraph))
+}
 
-    var corefGroups = myUnique(
+// for all coref statements, decide whether they are true in this sample.
+// all we know of the sample is the coref function.
+var corefDo = function(corefFn) {
+    // returns the new unifier
+    
+    // decide coreference for all groups
+    var corefStmts = corefStmtsTrueBy(corefFn)
+
+    var corefGroups = myArrUnique(
 	map(
 	    function(corefStmt) {
 		return aidaData.theGraph[corefStmt].cluster
@@ -638,24 +668,9 @@ var corefDo = function(cluster) {
 	    var clPrototype = aidaData.theGraph[ corefGroup ].prototype
 
 	    return unifierUnify(clMember, clPrototype, acc)
-	}, cluster.corefUnifier, corefStmts)
+	}, unifierInitial(), corefStmts)
 
-    return {
-	// cluster members
-	ere : cluster.ere,
-	statements : cluster.statements, 
-	corefStatements : corefStmts,
-	// query (core facets)
-	queryConstraints : cluster.queryConstraints, 
-	queryFailed : cluster.queryFailed,
-	// coref
- 	corefUnifier: newUnifier, 
-	corefFn : cluster.corefFn,
-	// "frontier" statements around current EREs
-	candidates : cluster.candidates, 
-	// statements for which a decision has been made
-	considered : cluster.considered 
-    }
+    return newUnifier
 }
 
 // determine EREs that are not in the cluster yet but that are
@@ -692,7 +707,7 @@ var extendClusterOnce = function(cluster, thresholdParameters) {
 // extend the cluster once by choosing a core constraint to fill
 // this returns a structure with entries
 // newCluster: updated cluster
-// newERE: EREs added to the frontier of the cluster
+// newERE: ERE indices added to the frontier of the cluster
 // newStatements: statements added to the cluster
 var extendClusterOnceByQueryConstraint = function(cluster, thresholdParameters) {
     if (clusterNoMoreQueryConstraints(cluster)) {
@@ -757,7 +772,8 @@ var extendClusterOnceByCandidateStatement = function(cluster, thresholdParameter
 	}
     } else {
 	// consider a candidate
-	var candidate = uniformDraw(cluster.candidates)
+	// draw from the decoded version of the set of candidates
+	var candidate = aidaData.statements[ mySetDraw(cluster.candidates) ]
 	    
 	// choose a threshold for it
 	var tau = gamma( thresholdParameters )
@@ -765,9 +781,8 @@ var extendClusterOnceByCandidateStatement = function(cluster, thresholdParameter
 	// choose whether it is a member
 	var isMember = flip()
 	// display(["considering candidate", candidate, isMember, tau, candidateProximity(cluster, candidate),
-	//	(isMember && candidateProximity(cluster, candidate) > tau) || (!isMember && candidateProximity(cluster, candidate) < tau)])
+	// (isMember && candidateProximity(cluster, candidate) > tau) || (!isMember && candidateProximity(cluster, candidate) < tau)])
 
-    
 
     	// The candidate needs to be on the right side of threshold tau
     	if (isMember) {
@@ -794,7 +809,7 @@ var recursivelyExtendCluster = function(cluster, thresholdParameters) {
 
     if (clusterNoMoreQueryConstraints(cluster) && clusterNoMoreCandidateStatements(cluster)) {
 	// nothing more to add to this cluster, end recursion
-	// display(["done with", cluster])
+	// display(["done with cluster"])
 	return cluster;
     } else {
 	// try to do one step of additions to the cluster
@@ -804,41 +819,15 @@ var recursivelyExtendCluster = function(cluster, thresholdParameters) {
 	// newStatements: statements added to the cluster
 	var result = extendClusterOnce(cluster, thresholdParameters)
 	
-	// take coreference into account
-	var newERE = corefAdditionalEres(result.newCluster, result.newERE)
-
-	// candidates: old candidates plus statements adjacent to the new EREs,
-	// minus statements already considered
-	var newCandidates = candidateRemoveDuplicates(result.newCluster,
-						      aidaCandidatesFromEre(result.newCluster, newERE))
-
-
-	var cluster1 = {
-	    // cluster members
-	    ere : result.newCluster.ere.concat(newERE),
-	    statements : result.newCluster.statements, 
-	    corefStatements : result.newCluster.corefStatements,
-	    // query (core facets)
-	    queryConstraints : result.newCluster.queryConstraints, 
-	    queryFailed : result.newCluster.queryFailed,
-	    // coref
- 	    corefUnifier: result.newCluster.corefUnifier, 
-	    corefFn : result.newCluster.corefFn,
-	    // "frontier" statements around current EREs
-	    candidates : result.newCluster.candidates.concat(newCandidates),
-	    // statements for which a decision has been made
-	    considered : result.newCluster.considered 
- 	}
-
 	// check logical consistency constraints for the new statements
 	map(
 	    function(candidate) {
-		logicalConsistency(cluster1, candidate)
+		logicalConsistency(result.newCluster, candidate)
 	    }, result.newStatements
 	)
 
 	// and repeat
-	return recursivelyExtendCluster( cluster1, thresholdParameters)
+	return recursivelyExtendCluster( result.newCluster, thresholdParameters)
     }
 }
     
@@ -852,40 +841,44 @@ var model = function() {
 
     // coreference resolution: we use a mem'ed function
     // to remember which EREs belong to which coref group
-    var corefGroupMember = mem(function(corefGroup, ere, confidence) {
+    var corefFn = mem(function(corefGroup, ere, confidence) {
 	return flip(confidence)
     })
 
-    // from this cluster seed, make a cluster of our internal format
-    var cluster0 = clusterObjectInit(clusterSeed, corefGroupMember)
+    // compute a unifier based on this coref function
+    var unifier = corefDo(corefFn)
 
-    // compute coref membership throughout
-    var cluster1 = corefDo(cluster0)
+    // EREs to store in the cluster: take only the unifiers,
+    // rather than all the coref mentions
+    var initialEres = aidaCanonicalEres(clusterSeed.ere, unifier)
+    // display(["initial EREs", aidaDecodeEreArray(initialEres)])
 
-    // compute additional EREs that are coreferent with the ones in the cluster
-    var newEres = corefAdditionalEres(cluster1, cluster1.ere)
-
+    // compute representation of included statements, with duplicates
+    var statementsNoAliases = aidaStmtSetUpdate(mySetEmpty(aidaData.statements.length), clusterSeed.statements)
+    // display(["initial statements without aliases", aidaDecodeStmtSet(statementsNoAliases), mySetLength(statementsNoAliases)])
+    var initialStatements = aidaStatementAliases(clusterSeed.statements, mySetEmpty(aidaData.statements.length), unifier)
+    // display(["initial statements", aidaDecodeStmtSet(initialStatements)])
+    
     // compute candidates
-    var candidates0 = aidaCandidatesFromEre(cluster1, cluster1.ere.concat(newEres))
-    // filter candidates: remove the ones that are equal to ones we already have.
-    var candidates1 = candidateRemoveDuplicates(cluster1, candidates0)
+    var initialCandidates = mySetDiff(aidaCandidates(initialEres, unifier),
+			       initialStatements)
+    // display(["initial candidates", aidaDecodeStmtSet(initialCandidates)])
     
     // assemble initial cluster    
     var clusterInitial = {
 	// cluster members
-	ere : cluster1.ere.concat(newEres),
-	statements : cluster1.statements, 
-	corefStatements : cluster1.corefStatements,
+	ere : initialEres,
+	statements : initialStatements,
 	// query (core facets)
-	queryConstraints : cluster1.queryConstraints, 
-	queryFailed : cluster1.queryFailed,
+	queryConstraints : clusterSeed.queryConstraints, 
+	queryFailed : [ ],
 	// coref
- 	corefUnifier: cluster1.corefUnifier,
-	corefFn : cluster1.corefFn,
+ 	corefUnifier: unifier, 
+	corefFn : corefFn,
 	// "frontier" statements around current EREs
-	candidates : candidates1,
+	candidates : initialCandidates, 
 	// statements for which a decision has been made
-	considered : cluster1.considered 
+	considered : initialStatements
     }
     
 						       
@@ -893,16 +886,22 @@ var model = function() {
     var clusterFinal = recursivelyExtendCluster(clusterInitial, aidaData.parameters)
 
     // and report on results
+    var decodedStatements = aidaDecodeStmtSet(clusterFinal.statements)
+    var decodedCorefStatements = corefStmtsTrueBy(clusterFinal.corefFn)
+
+    // display(["done, statements:", aidaDecodeStmtSet(clusterFinal.statements), "coref:", corefStmtsTrueBy(clusterFinal.corefFn)])
+    
     return {
-	statements : sort(clusterFinal.statements.concat(
-	    clusterFinal.corefStatements)),
+	statements : sort(
+	    aidaDecodeStmtSet(clusterFinal.statements).concat(
+		corefStmtsTrueBy(clusterFinal.corefFn))),
 	failedQueries : clusterFinal.queryFailed
     }
 }
 			  
 
 var Experiment = function () {
-    return Infer( { method : "SMC", particles : 1000 }, model)
+    return Infer( { method : "SMC", particles : 10 }, model)
 }
 
 //-------------------------------
