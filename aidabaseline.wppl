@@ -113,14 +113,33 @@ var seqConstraintVar = filter(
     )
 )
 
+// make an initial unifier that maps each ERE or variable to itself.
+var unifierInitial = function() {
+    return _.range(aidaData.ere.length + seqConstraintVar.length)
+}
+
+
+// does this term have a unifier
+var unifierExists = function(item) {
+    return _.has(aidaData.theGraph, item) || _.has(seqConstraintVar, item)
+}
 // returns the index of an ERE or constraint variable
 var unifierIndex = function(ere) {
-    return _.has(aidaData.theGraph, ere) ? aidaData.theGraph[ere].index : (aidaData.ere.length + seqConstraintVar.indexOf(ere))
+    return !unifierExists(ere)
+	? -1
+	:
+	_.has(aidaData.theGraph, ere)
+	? aidaData.theGraph[ere].index
+	: (aidaData.ere.length + seqConstraintVar.indexOf(ere))
 }
 
 // returns the unifier of an ERE or constraint variable
 var unifierGet = function(ere, unifInfo) {
-    return unifInfo[ unifierIndex(ere) ]
+    if (!unifierExists(ere)) {
+	return -1
+    } else {
+	return unifInfo[ unifierIndex(ere) ]
+    }
 }
 
 // returns all EREs that have a particular unifier
@@ -141,7 +160,18 @@ var unifierGetOriginals = function(ereUnif, unifInfo) {
 
 // true if two EREs or constraint variables have the same unifier
 var unifierEquals = function(ere1, ere2, unifInfo) {
-    return unifierGet(ere1, unifInfo) == unifierGet(ere2, unifInfo)
+    return unifierExists(ere1) &&
+	unifierExists(ere2) &&
+	unifierGet(ere1, unifInfo) == unifierGet(ere2, unifInfo)
+}
+
+// unbound core variable:
+// true if coreVar doesn't have an entry in theGraph (so it is a core variable)
+// and its unifier is itself
+var unifierVarUnbound = function(coreVar, unifInfo) {
+    return unifierExists(coreVar) &&
+	!(_.has(aidaData.theGraph, coreVar)) &&
+	unifierGet(coreVar, unifInfo) == unifierIndex(coreVar)
 }
 
 // unifiable: either they are already in the same equivalence class,
@@ -170,31 +200,42 @@ var unifierDecideUnifier = function(unifier1, unifier2) {
 
 // returns a new unifInfo in which ere1 and ere2 have been unified
 var unifierUnify = function(ere1, ere2, unifInfo) {
-    var unifier1 = unifierGet(ere1, unifInfo)
-    var unifier2 = unifierGet(ere2, unifInfo)
-
-    if (unifier1 == unifier2) {
+    if (!unifierExists(ere1) || !unifierExists(ere2)) {
 	return unifInfo
     } else {
-	var unifierOrder = unifierDecideUnifier(unifier1, unifier2)
-	return map(
-	    function(unifier) {
-		return unifier == unifierOrder.obsoleteUnifier ? unifierOrder.newUnifier : unifier
-	    }, unifInfo)
+	var unifier1 = unifierGet(ere1, unifInfo)
+	var unifier2 = unifierGet(ere2, unifInfo)
+
+	if (unifier1 == unifier2) {
+	    return unifInfo
+	} else {
+	    var unifierOrder = unifierDecideUnifier(unifier1, unifier2)
+	    return map(
+		function(unifier) {
+		    return unifier == unifierOrder.obsoleteUnifier ? unifierOrder.newUnifier : unifier
+		}, unifInfo)
+	}
     }
 }
 
-// make an initial unifier that maps each ERE or variable to itself.
-var unifierInitial = function() {
-    return _.range(aidaData.ere.length + seqConstraintVar.length)
+// given two statement arguments, say they are the same
+// if they have unifiers and they are the same,
+// of if they are constants that are the same
+var unifierArgEqual = function(arg1, arg2, unifInfo) {
+    if (unifierExists(arg1) && unifierExists(arg2)) {
+	// two EREs or variables
+	return unifierEquals(arg1, arg2, unifInfo)
+    } else {
+	if (!unifierExists(arg1) && !unifierExists(arg2)) {
+	    // two non-EREs, non-variables
+	    return arg1 == arg2
+	} else {
+	    // one ERE, one constant or something like that
+	    return false
+	}
+    }
 }
 
-// unbound core variable:
-// true if coreVar doesn't have an entry in theGraph (so it is a core variable)
-// and its unifier is itself
-var unifierVarUnbound = function(coreVar, unifInfo) {
-    return !(_.has(aidaData.theGraph, coreVar)) && unifierGet(coreVar, unifInfo) == unifierIndex(coreVar)
-}
 
 // Given two statement labels, determine whether they are the same statement
 // modulo coref
@@ -202,11 +243,17 @@ var unifierStmtEqual = function(l1, l2, unifInfo) {
     var sEntry1 = aidaEntry(l1)
     var sEntry2 = aidaEntry(l2)
     
-    // display(["HIER unifierStmtEqual", unifierGet(sEntry1.subject, unifInfo), unifierGet(sEntry2.subject, unifInfo)])
+    // if (sEntry1.predicate == sEntry2.predicate &&
+    // 	unifierArgEqual(sEntry1.subject, sEntry2.subject, unifInfo) &&
+    // 	unifierArgEqual(sEntry1.object, sEntry2.object, unifInfo)) {
+    // 	display(["HIER unifierStmtEqual", sEntry1, sEntry2,
+    // 		 unifierGet(sEntry1.subject, unifInfo), unifierGet(sEntry2.subject, unifInfo),
+    // 		 unifierGet(sEntry1.object, unifInfo), unifierGet(sEntry2.object, unifInfo)])
+    // }
     
     return sEntry1.predicate == sEntry2.predicate &&
-	unifierEquals(sEntry1.subject, sEntry2.subject, unifInfo) &&
-	unifierEquals(sEntry1.object, sEntry2.object, unifInfo)
+	unifierArgEqual(sEntry1.subject, sEntry2.subject, unifInfo) &&
+	unifierArgEqual(sEntry1.object, sEntry2.object, unifInfo)
 }
 
 //------------------------------------------------
@@ -901,7 +948,7 @@ var model = function() {
 			  
 
 var Experiment = function () {
-    return Infer( { method : "SMC", particles : 10 }, model)
+    return Infer( { method : "SMC", particles : 1 }, model)
 }
 
 //-------------------------------
