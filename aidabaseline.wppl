@@ -438,12 +438,20 @@ var objectUniquePredicates = [ 'Life.Die_Agent', 'Movement.TransportPerson_Perso
 // if e1 p e2 and e1 p e3 then e2 = e3
 var constObjectUniqueHard = function(clusterEntries, candidateEntry, cluster) {
     // test for subject uniqueness only if our candidate has a predicate that is subject-unique
-    if (objectUniquePredicatesHard.indexOf(candidateEntry.predicate > -1)) {
+    if (objectUniquePredicatesHard.indexOf(candidateEntry.predicate) > -1) {
 	map(
 	    function(clusterEntry) {
-		condition(!(unifierEquals(candidateEntry.subject, clusterEntry.subject, cluster.corefUnifier)) ||
+		// // HIER testing
+		// if (candidateEntry.predicate == clusterEntry.predicate) {
+		//     display(["checking equality of", candidateEntry, clusterEntry,
+		// 	     unifierArgEqual(candidateEntry.subject, clusterEntry.subject, cluster.corefUnifier) &&
+		// 	    candidateEntry.predicate == clusterEntry.predicate &&
+		// 	     unifierArgEqual(candidateEntry.object, clusterEntry.object, cluster.corefUnifier)])
+		// }
+		    
+		condition(!(unifierArgEqual(candidateEntry.subject, clusterEntry.subject, cluster.corefUnifier)) ||
 			  candidateEntry.predicate != clusterEntry.predicate ||
-			  unifierEquals(candidateEntry.object, clusterEntry.object, cluster.corefUnifier))
+			  unifierArgEqual(candidateEntry.object, clusterEntry.object, cluster.corefUnifier))
 	    }, clusterEntries)
     }
 }
@@ -457,9 +465,17 @@ var constObjectUnique = function(clusterEntries, candidateEntry, cluster) {
     if (objectUniquePredicates.indexOf(candidateEntry.predicate) > -1) {
 	map(
 	    function(clusterEntry) {
-		factor(!(unifierEquals(candidateEntry.subject, clusterEntry.subject, cluster.corefUnifier)) ||
+		// // HIER testing
+		// if (candidateEntry.predicate == clusterEntry.predicate) {
+		//     display(["checking conflict of", candidateEntry, clusterEntry,
+		// 	     unifierArgEqual(candidateEntry.subject, clusterEntry.subject, cluster.corefUnifier) &&
+		// 	     candidateEntry.predicate == clusterEntry.predicate &&
+		// 	     !unifierArgEqual(candidateEntry.object, clusterEntry.object, cluster.corefUnifier)])
+		// }
+		    
+		factor(!(unifierArgEqual(candidateEntry.subject, clusterEntry.subject, cluster.corefUnifier)) ||
 		       candidateEntry.predicate != clusterEntry.predicate ||
-		       unifierEquals(candidateEntry.object, clusterEntry.object, cluster.corefUnifier) ?
+		       unifierArgEqual(candidateEntry.object, clusterEntry.object, cluster.corefUnifier) ?
 		       0 : -3)
 	    }, clusterEntries)
     }
@@ -486,7 +502,7 @@ var unaryConstraints = [ constUseTypes, constConfidence ];
 var logicalConsistency = function(cluster, candidate) {
     // map statements to entries
     var candidateEntry = aidaEntry(candidate) 
-    var clusterEntries = aidaDecodeStmtSet(cluster.statements)
+    var clusterEntries = map(function(stmt) { return aidaEntry(stmt) }, aidaDecodeStmtSet(cluster.statements))
 
     // apply binary constraints
     map(
@@ -867,11 +883,12 @@ var recursivelyExtendCluster = function(cluster, thresholdParameters) {
 	var result = extendClusterOnce(cluster, thresholdParameters)
 	
 	// check logical consistency constraints for the new statements
-	map(
-	    function(candidate) {
-		logicalConsistency(result.newCluster, candidate)
-	    }, result.newStatements
-	)
+	// HIER changed
+	// map(
+	//     function(candidate) {
+	// 	logicalConsistency(result.newCluster, candidate)
+	//     }, result.newStatements
+	// )
 
 	// and repeat
 	return recursivelyExtendCluster( result.newCluster, thresholdParameters)
@@ -938,17 +955,18 @@ var model = function() {
 
     // display(["done, statements:", aidaDecodeStmtSet(clusterFinal.statements), "coref:", corefStmtsTrueBy(clusterFinal.corefFn)])
     
-    return {
-	statements : sort(
-	    aidaDecodeStmtSet(clusterFinal.statements).concat(
-		corefStmtsTrueBy(clusterFinal.corefFn))),
-	failedQueries : clusterFinal.queryFailed
-    }
+    // return {
+    // 	statements : sort(
+    // 	    aidaDecodeStmtSet(clusterFinal.statements).concat(
+    // 		corefStmtsTrueBy(clusterFinal.corefFn))),
+    // 	failedQueries : clusterFinal.queryFailed
+    // }
+    return mySetLength(clusterFinal.statements)
 }
 			  
 
 var Experiment = function () {
-    return Infer( { method : "SMC", particles : 1 }, model)
+    return Infer( { method : "SMC", particles : 10 }, model)
 }
 
 //-------------------------------
