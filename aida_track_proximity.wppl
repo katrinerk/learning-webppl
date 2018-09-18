@@ -572,7 +572,8 @@ var clusterAddCandidate = function(cluster, candidate) {
 	// "frontier" statements around current EREs
 	candidates : updatedCandidates,
 	// statements for which a decision has been made
-	considered : updatedConsidered
+	considered : updatedConsidered,
+	proximity : cluster.proximity
     }
 	
     return {
@@ -603,7 +604,8 @@ var clusterDropCandidate = function(cluster, candidate) {
 	// "frontier" statements around current EREs
 	candidates : updatedCandidates,
 	// statements for which a decision has been made
-	considered : updatedConsidered
+	considered : updatedConsidered,
+	proximity : cluster.proximity
     }
     
     return {
@@ -629,7 +631,8 @@ var clusterQueryFailed = function(cluster, queryConstraint) {
 	// "frontier" statements around current EREs
 	candidates : cluster.candidates, 
 	// statements for which a decision has been made
-	considered : cluster.considered 
+	considered : cluster.considered,
+	proximity : cluster.proximity
     }
     
     return {
@@ -661,7 +664,8 @@ var clusterQueryExisting = function (cluster, queryConstraint, statement) {
 	// "frontier" statements around current EREs
 	candidates : cluster.candidates, 
 	// statements for which a decision has been made
-	considered : cluster.considered 
+	considered : cluster.considered,
+	proximity : cluster.proximity
     }
     
     return {
@@ -694,7 +698,8 @@ var clusterQueryAdd = function(cluster, queryConstraint, candidate) {
 	// "frontier" statements around current EREs
 	candidates : cluster.candidates, 
 	// statements for which a decision has been made
-	considered : cluster.considered 
+	considered : cluster.considered,
+	proximity : cluster.proximity
     }
       // display(["updated queryAdd yields", updated2.query])
     
@@ -876,6 +881,24 @@ var extendClusterOnceByCandidateStatement = function(cluster, thresholdParameter
 	//
 	// display(["tau", testMargin, tau, thisCandidateProximity, (isMember && thisCandidateProximity > tau) || (!isMember && thisCandidateProximity < tau)])
 
+	var updatedCluster = thisCandidateProximity == 0 ? cluster :	
+	    {
+		// cluster members
+		ere : cluster.ere,
+		statements : cluster.statements,
+		statementPrototypes : cluster.statementPrototypes,
+		// query (core facets)
+		queryConstraints : cluster.queryConstraints, 
+		queryFailed : cluster.queryFailed,
+		// coref
+ 		corefUnifier: cluster.corefUnifier, 
+		corefFn : cluster.corefFn,
+		// "frontier" statements around current EREs
+		candidates : cluster.candidates, 
+		// statements for which a decision has been made
+		considered : cluster.considered,
+		proximity : cluster.proximity.concat( thisCandidateProximity)
+	    }
 
     	// The candidate needs to be on the right side of threshold tau
     	if (isMember) {
@@ -883,14 +906,14 @@ var extendClusterOnceByCandidateStatement = function(cluster, thresholdParameter
 	    // turned hard condition into factor because we keep having trouble with setting the threshold well
     	    // condition( candidateProximity(cluster, candidate) > tau)
 
-    	    return clusterAddCandidate(cluster, candidate)
+    	    return clusterAddCandidate(updatedCluster, candidate)
 	    
     	} else {
 	    factor( tau < thisCandidateProximity ? tau - thisCandidateProximity : 0)
 	    // again, not hard condition for now because of high sensitivity to threshold
     	    // condition( candidateProximity( cluster, candidate) < tau)
 	    
-    	    return clusterDropCandidate(cluster, candidate)
+    	    return clusterDropCandidate(updatedCluster, candidate)
     	}
     }
 }
@@ -976,48 +999,26 @@ var model = function() {
 	// "frontier" statements around current EREs
 	candidates : initialCandidates, 
 	// statements for which a decision has been made
-	considered : initialStatements
+	considered : initialStatements,
+	proximity : [ ]
     }
     
 						       
     // now do the work
     var clusterFinal = recursivelyExtendCluster(clusterInitial, aidaData.parameters)
 
+    display(["sample avg proximity", listMean(clusterFinal.proximity), "stdev", listStdev(clusterFinal.proximity)])
+
     // and report on results
-    var finalCorefStatements = filter(
-	function(corefStmt) {
-	    if (_.has(aidaData.theGraph, corefStmt)) {
-		var member = aidaEntry(corefStmt).clusterMember
-
-		return clusterFinal.ere.indexOf(unifierGet(member, clusterFinal.corefUnifier)) > -1
-		
-	    } else {
-		return false
-	    }
-	}, 
-	corefStmtsTrueBy(clusterFinal.corefFn)
-    )
-
-    // display(["done, statements:", clusterFinal.statementPrototypes, "coref:", finalCorefStatements])
-    
-    return {
-    	statements : sort(
-    	    clusterFinal.statementPrototypes.concat(
-		finalCorefStatements)), 
-    	failedQueries : clusterFinal.queryFailed
-    }
-    // return mySetLength(clusterFinal.statements)
+    return clusterFinal.proximity
 }
 			  
 
 var Experiment = function () {
-    return Infer( { method : "SMC", particles : 10 }, model)
+    return Infer( { method : "SMC", particles : 5 }, model)
 }
 
 //-------------------------------
 var result = Experiment()
 
-display("Writing results to aidaresult.json")
-json.write('aidaresult.json', result);
-
-"AIDA baseline done."
+"proximity exploration done."
