@@ -873,7 +873,7 @@ var extendClusterOnceByCandidateStatement = function(cluster, thresholdParameter
 	var tau = gamma( thresholdParameters )
 
 	// choose whether it is a member
-	var isMember = flip(0.1)
+	var isMember = flip(aidaData.memberProb)
 	// var testMargin = (isMember ?
 	//		  ( tau > thisCandidateProximity ? thisCandidateProximity - tau : 0)
 	//		  :
