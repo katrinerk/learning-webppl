@@ -30,6 +30,7 @@
 //           the core data structure described above
 // display("reading aidagraph.json")
 var aidaData = json.read('aidagraph.json');
+var aidaQuery = json.read('aidaquery.json');
 // display("done reading aidagraph.json")
 
 //------------------------------------------------
@@ -117,7 +118,7 @@ var seqConstraintVar = filter(
 		    function(cconstraint, acc2) {
 			return [ cconstraint[0], cconstraint[2]].concat(acc2)
 		    }, acc1, entryPoint.queryConstraints)
-	    }, [ ], aidaData.entrypoints)
+	    }, [ ], aidaQuery.entrypoints)
     )
 )
 
@@ -868,7 +869,7 @@ var extendClusterOnceByCandidateStatement = function(cluster, thresholdParameter
 	var tau = gamma( thresholdParameters )
 
 	// choose whether it is a member
-	var isMember = flip(aidaData.memberProb)
+	var isMember = flip(aidaQuery.memberProb)
 	// var testMargin = (isMember ?
 	//		  ( tau > thisCandidateProximity ? thisCandidateProximity - tau : 0)
 	//		  :
@@ -933,7 +934,7 @@ var recursivelyExtendCluster = function(cluster, thresholdParameters) {
 var model = function() {
     // cluster seed:
     // draw from entry points
-    var clusterSeed =  uniformDraw(aidaData["entrypoints"])
+    var clusterSeed =  uniformDraw(aidaQuery.entrypoints)
     // display(["cluster seed", clusterSeed])
 
     // coreference resolution: we use a mem'ed function
@@ -981,7 +982,7 @@ var model = function() {
     
 						       
     // now do the work
-    var clusterFinal = recursivelyExtendCluster(clusterInitial, aidaData.parameters)
+    var clusterFinal = recursivelyExtendCluster(clusterInitial, aidaQuery.parameters)
 
     // and report on results
     var finalCorefStatements = filter(
@@ -1011,7 +1012,7 @@ var model = function() {
 			  
 
 var Experiment = function () {
-    return Infer( { method : "SMC", particles : aidaData.numSamples }, model)
+    return Infer( { method : "SMC", particles : aidaQuery.numSamples }, model)
 }
 
 //-------------------------------
