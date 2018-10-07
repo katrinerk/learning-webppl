@@ -251,7 +251,7 @@ var unifierArgEqual = function(arg1, arg2, unifInfo) {
 var unifierStmtEqual = function(l1, l2, unifInfo) {
     var sEntry1 = aidaEntry(l1)
     var sEntry2 = aidaEntry(l2)
-    
+
     return sEntry1.predicate == sEntry2.predicate &&
 	unifierArgEqual(sEntry1.subject, sEntry2.subject, unifInfo) &&
 	unifierArgEqual(sEntry1.object, sEntry2.object, unifInfo)
@@ -550,7 +550,11 @@ var clusterAddCandidate = function(cluster, candidate) {
 	cluster.ere)
     // display(["clusterAddCandidate new ere", aidaDecodeEreArray(newEre)])
 
-    var newStatements = aidaStatementAliases( [candidate], cluster.considered, cluster.corefUnifier)
+    var newStatements = cluster.corefIsThere?
+	aidaStatementAliases( [candidate], cluster.considered, cluster.corefUnifier)
+	:
+	aidaStmtSetUpdate(mySetEmpty(aidaData.statements.length), [candidate])
+    
     var updatedStatements = mySetUnion(cluster.statements, newStatements)
     var updatedConsidered = mySetUnion(cluster.considered, newStatements)
     var updatedCandidates = mySetDiff(
@@ -568,7 +572,8 @@ var clusterAddCandidate = function(cluster, candidate) {
 	queryConstraints : cluster.queryConstraints,
 	queryFailed : cluster.queryFailed,
 	// coref
- 	corefUnifier: cluster.corefUnifier,
+	corefIsThere : cluster.corefIsThere,
+ 	corefUnifier : cluster.corefUnifier,
 	corefFn : cluster.corefFn,
 	// "frontier" statements around current EREs
 	candidates : updatedCandidates,
@@ -585,7 +590,11 @@ var clusterAddCandidate = function(cluster, candidate) {
 
 // compute new cluster when the candidate is not added
 var clusterDropCandidate = function(cluster, candidate) {
-    var newStatements = aidaStatementAliases( [candidate], cluster.considered, cluster.corefUnifier)
+    var newStatements = cluster.corefIsThere?
+	aidaStatementAliases( [candidate], cluster.considered, cluster.corefUnifier)
+	:
+	aidaStmtSetUpdate(mySetEmpty(aidaData.statements.length), [candidate])
+
 
     var updatedConsidered = mySetUnion(cluster.considered, newStatements)
     var updatedCandidates = mySetDiff(cluster.candidates, newStatements)
@@ -599,7 +608,8 @@ var clusterDropCandidate = function(cluster, candidate) {
 	queryConstraints : cluster.queryConstraints,
 	queryFailed : cluster.queryFailed,
 	// coref
- 	corefUnifier: cluster.corefUnifier,
+	corefIsThere : cluster.corefIsThere,
+ 	corefUnifier : cluster.corefUnifier,
 	corefFn : cluster.corefFn,
 	// "frontier" statements around current EREs
 	candidates : updatedCandidates,
@@ -625,6 +635,7 @@ var clusterQueryFailed = function(cluster, queryConstraint) {
 	queryConstraints : myArrayMinusElt(cluster.queryConstraints, queryConstraint),
 	queryFailed : cluster.queryFailed.concat([ queryConstraint ]),
 	// coref
+	corefIsThere : cluster.corefIsThere,
  	corefUnifier: cluster.corefUnifier,
 	corefFn : cluster.corefFn,
 	// "frontier" statements around current EREs
@@ -657,6 +668,7 @@ var clusterQueryExisting = function (cluster, queryConstraint, statement) {
 	queryConstraints : myArrayMinusElt(cluster.queryConstraints, queryConstraint),
 	queryFailed : cluster.queryFailed,
 	// coref
+	corefIsThere : cluster.corefIsThere,	
  	corefUnifier: updatedUnifier,
 	corefFn : cluster.corefFn,
 	// "frontier" statements around current EREs
@@ -690,6 +702,7 @@ var clusterQueryAdd = function(cluster, queryConstraint, candidate) {
 	queryConstraints : myArrayMinusElt(cluster.queryConstraints, queryConstraint),
 	queryFailed : cluster.queryFailed,
 	// coref
+	corefIsThere : cluster.corefIsThere,
  	corefUnifier: updatedUnifier,
 	corefFn : cluster.corefFn,
 	// "frontier" statements around current EREs
@@ -730,29 +743,31 @@ var corefStmtsTrueBy = function(corefFn) {
 
 // for all coref statements, decide whether they are true in this sample.
 // all we know of the sample is the coref function.
-var corefDo = function(corefFn) {
+var corefDo = function(corefFn, corefStmts) {
     // returns the new unifier
     
-    // decide coreference for all groups
-    var corefStmts = corefStmtsTrueBy(corefFn)
+    if (corefStmts.length == 0) {
+	return unifierInitial()
+    } else {
+    
+	var corefGroups = myArrUnique(
+	    map(
+		function(corefStmt) {
+		    return aidaData.theGraph[corefStmt].cluster
+		}, corefStmts)
+	)
 
-    var corefGroups = myArrUnique(
-	map(
-	    function(corefStmt) {
-		return aidaData.theGraph[corefStmt].cluster
-	    }, corefStmts)
-    )
-
-    var newUnifier = reduce(
-	function(corefStmt, acc) {
-	    var clMember = aidaData.theGraph[corefStmt].clusterMember
-	    var corefGroup = aidaData.theGraph[corefStmt].cluster
-	    var clPrototype = aidaData.theGraph[ corefGroup ].prototype
-
-	    return unifierUnify(clMember, clPrototype, acc)
-	}, unifierInitial(), corefStmts)
-
-    return newUnifier
+	var newUnifier = reduce(
+	    function(corefStmt, acc) {
+		var clMember = aidaData.theGraph[corefStmt].clusterMember
+		var corefGroup = aidaData.theGraph[corefStmt].cluster
+		var clPrototype = aidaData.theGraph[ corefGroup ].prototype
+		
+		return unifierUnify(clMember, clPrototype, acc)
+	    }, unifierInitial(), corefStmts)
+	
+	return newUnifier
+    }
 }
 
 // determine EREs that are not in the cluster yet but that are
@@ -943,8 +958,10 @@ var model = function() {
 	return flip(confidence)
     })
 
-    // compute a unifier based on this coref function
-    var unifier = corefDo(corefFn)
+    // compute a unifier based on this coref function. Also, do we have coref?
+    var corefStmts = corefStmtsTrueBy(corefFn)
+    var isThereCoref = (corefStmts.length > 0)
+    var unifier = corefDo(corefFn, corefStmts)
 
     // EREs to store in the cluster: take only the unifiers,
     // rather than all the coref mentions
@@ -952,9 +969,13 @@ var model = function() {
     // display(["initial EREs", aidaDecodeEreArray(initialEres)])
 
     // compute representation of included statements, with duplicates
+    var initialStatements = isThereCoref?
+	aidaStatementAliases(clusterSeed.statements, mySetEmpty(aidaData.statements.length), unifier)
+	:
+	aidaStmtSetUpdate(mySetEmpty(aidaData.statements.length), clusterSeed.statements)
     // var statementsNoAliases = aidaStmtSetUpdate(mySetEmpty(aidaData.statements.length), clusterSeed.statements)
     // display(["initial statements without aliases", aidaDecodeStmtSet(statementsNoAliases), mySetLength(statementsNoAliases)])
-    var initialStatements = aidaStatementAliases(clusterSeed.statements, mySetEmpty(aidaData.statements.length), unifier)
+    // var initialStatements = 	aidaStatementAliases(clusterSeed.statements, mySetEmpty(aidaData.statements.length), unifier)
     // display(["initial statements", aidaDecodeStmtSet(initialStatements)])
     
     // compute candidates
@@ -972,6 +993,7 @@ var model = function() {
 	queryConstraints : clusterSeed.queryConstraints, 
 	queryFailed : [ ],
 	// coref
+	corefIsThere : isThereCoref,
  	corefUnifier: unifier, 
 	corefFn : corefFn,
 	// "frontier" statements around current EREs
