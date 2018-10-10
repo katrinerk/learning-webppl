@@ -28,9 +28,10 @@
 //           they are alternative cluster seeds to start from
 //           an entry point is a structure that describes a cluster,
 //           the core data structure described above
-// display("reading aidagraph.json")
-var aidaData = json.read('aidagraph.json');
-var aidaQuery = json.read('aidaquery.json');
+display("Reading aidagraph.json from " + argv.aidagraph)
+var aidaData = json.read(argv.aidagraph);
+display("Reading aidaquery.json from " + argv.aidaquery)
+var aidaQuery = json.read(argv.aidaquery);
 // display("done reading aidagraph.json")
 
 //------------------------------------------------

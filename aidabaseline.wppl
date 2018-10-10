@@ -28,9 +28,10 @@
 //           they are alternative cluster seeds to start from
 //           an entry point is a structure that describes a cluster,
 //           the core data structure described above
-// display("reading aidagraph.json")
-var aidaData = json.read('aidagraph.json');
-var aidaQuery = json.read('aidaquery.json');
+display("Reading aidagraph.json from " + argv.aidagraph)
+var aidaData = json.read(argv.aidagraph);
+display("Reading aidaquery.json from " + argv.aidaquery)
+var aidaQuery = json.read(argv.aidaquery);
 // display("done reading aidagraph.json")
 
 //------------------------------------------------
@@ -1034,13 +1035,14 @@ var model = function() {
 			  
 
 var Experiment = function () {
-    return Infer( { method : "SMC", particles : aidaQuery.numSamples }, model)
+    display("Starting inference with " + argv.numSamples + " samples.")
+    return Infer( { method : "SMC", particles : argv.numSamples }, model)
 }
 
 //-------------------------------
 var result = Experiment()
 
-display("Writing results to aidaresult.json")
-json.write('aidaresult.json', result);
+display("Writing results to " + argv.aidaresult)
+json.write(argv.aidaresult, result);
 
 "AIDA baseline done."
